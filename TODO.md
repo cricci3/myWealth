@@ -22,7 +22,7 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 | M12 | Finestra app in Brave (poi Edge, poi browser predefinito) | ✅ Fatta | `f13189f` |
 | M13 | Smartphone, lato desktop: abbinamento QR, cartella in arrivo, import cifrato con deduplica | ✅ Fatta | `f080941` |
 | M14 | App smartphone (PWA): inserimento offline, export cifrato, condivisione, GitHub Pages | ✅ Fatta | `184169a` |
-| M15 | Importi oscurati: pulsante occhio, Ctrl+Shift+H, stato ricordato, "Avvia con importi oscurati" | ✅ Fatta | — |
+| M15 | Importi oscurati: pulsante occhio, Ctrl+Shift+H, stato ricordato, "Avvia con importi oscurati"; PWA: occhio in Voci, Modifica/Elimina per voce | ✅ Fatta | — |
 
 ## Da fare
 
@@ -45,6 +45,7 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 - [ ] Pulsante occhio e Ctrl+Shift+H su tutte le schede, in tema chiaro e scuro e a finestra stretta (la verifica nel browser non è stata possibile durante lo sviluppo).
 - [ ] Ctrl+Shift+H non in conflitto con Brave/Edge in modalità app.
 - [ ] Stato ricordato dopo la riapertura; "Avvia con importi oscurati" ha la precedenza.
+- [ ] PWA 1.1.0: occhio visibile solo in Voci e ricordato dopo il riavvio dell'app; pulsanti Modifica/Elimina sulle voci in sospeso (tema chiaro/scuro); banner "Aggiornamento disponibile" dopo la pubblicazione.
 
 ### Smartphone (da verificare sul telefono reale)
 - [ ] Attivare GitHub Pages: repository → Settings → Pages → Source: **GitHub Actions**; poi push di `mobile/`.

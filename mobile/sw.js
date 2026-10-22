@@ -1,7 +1,7 @@
 /* Service worker: every file of the app is cached at install, so it works fully offline.
  * A new version waits until the page asks for it ("Aggiorna"), never mid-entry.
  * It only ever serves this site's own files: there is no other network traffic. */
-const VERSION = "1.0.0"; // keep in sync with APP_VERSION in js/app.js
+const VERSION = "1.1.0"; // keep in sync with APP_VERSION in js/app.js
 const CACHE = `mywealth-${VERSION}`;
 const FILES = [
   "./",

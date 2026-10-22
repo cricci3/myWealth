@@ -6,7 +6,7 @@ import { ChunkCollector, PairingError, parsePayload } from "./pairing.js";
 import { canScan, startScan } from "./scanner.js";
 import * as store from "./store.js";
 
-export const APP_VERSION = "1.0.0"; // keep in sync with VERSION in sw.js
+export const APP_VERSION = "1.1.0"; // keep in sync with VERSION in sw.js
 const REMIND_DAYS = 7;
 const KEEP_EXPORTED_DAYS = 30;
 const KINDS = { expense: "Spesa", income: "Entrata", transfer: "Trasferimento" };
@@ -21,10 +21,16 @@ const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.g
 const dateFmt = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
 const dateTimeFmt = (iso) => new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 86400000;
+const MASK = "•••••"; // hidden amount in "Voci" (eye button); the currency stays visible
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'),
+  trash: svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
+};
 
 const app = {
   pairing: null, // {cryptoKey, kid, at, pairedAt, accounts, categories}
-  prefs: { theme: "system", last: {} },
+  prefs: { theme: "system", last: {}, hideAmounts: false },
   entries: [],
   screen: "new",
   editing: null, // entry being edited
@@ -68,6 +74,24 @@ async function savePrefs() {
   await store.setValue("prefs", app.prefs);
 }
 
+/** Delete a pending entry after confirmation: it will not be exported. True if deleted. */
+async function removeEntry(e) {
+  if (!(await confirmBox("Eliminare la voce?", "La voce viene cancellata dal telefono e non sarà esportata.", "Elimina"))) return false;
+  await store.deleteEntry(e.id);
+  app.entries = app.entries.filter((x) => x.id !== e.id);
+  updateCount();
+  toast("Voce eliminata");
+  return true;
+}
+
+// Amounts in "Voci" can be hidden (eye button in the header); the choice is kept in prefs.
+function applyMask() {
+  const on = Boolean(app.prefs.hideAmounts), btn = $("#btn-mask"), label = on ? "Mostra importi" : "Nascondi importi";
+  btn.setAttribute("aria-pressed", String(on));
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+}
+
 function applyTheme(theme) {
   if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
@@ -83,6 +107,7 @@ function show(screen) {
   $("#tabbar").hidden = !app.pairing;
   $$("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === screen));
   $("#title").textContent = screen === "new" && app.editing ? "Modifica voce" : TITLES[screen];
+  $("#btn-mask").hidden = screen !== "list";
   ({ pair: renderPair, new: renderNew, list: renderList, export: renderExport, settings: renderSettings })[screen]();
   window.scrollTo(0, 0);
 }
@@ -244,13 +269,9 @@ function renderNew() {
   }));
   $("[data-cancel]", el)?.addEventListener("click", () => { app.editing = null; app.dirty = false; show("list"); });
   $("[data-delete]", el)?.addEventListener("click", async () => {
-    if (!(await confirmBox("Eliminare la voce?", "La voce viene cancellata dal telefono.", "Elimina"))) return;
-    await store.deleteEntry(e.id);
-    app.entries = app.entries.filter((x) => x.id !== e.id);
+    if (!(await removeEntry(e))) return;
     app.editing = null;
     app.dirty = false;
-    updateCount();
-    toast("Voce eliminata");
     show("list");
   });
   form.addEventListener("submit", async (ev) => {
@@ -317,11 +338,18 @@ function entryHtml(e, readonly) {
   const dec = account(acc)?.decimals ?? 2;
   const sign = e.kind === "expense" ? "−" : e.kind === "income" ? "+" : "";
   const where = e.kind === "transfer" ? `${e.from} → ${e.to}` : acc;
-  return `<button type="button" class="entry${readonly ? " readonly" : ""}" ${readonly ? "disabled" : `data-edit="${esc(e.id)}"`}>
-    <span class="what">${esc(e.description || e.category || KINDS[e.kind])}</span>
-    <span class="amt ${e.kind}">${sign}${formatAmount(e.amount, dec)} ${esc(cur)}</span>
-    <span class="meta">${dateFmt(e.date)} · ${esc(where)}${e.category && e.description ? ` · ${esc(e.category)}` : ""}</span>
-  </button>`;
+  const amount = app.prefs.hideAmounts ? MASK : formatAmount(e.amount, dec);
+  return `<div class="entry${readonly ? " readonly" : ""}">
+    <button type="button" class="entry-body" ${readonly ? "disabled" : `data-edit="${esc(e.id)}"`}>
+      <span class="what">${esc(e.description || e.category || KINDS[e.kind])}</span>
+      <span class="amt ${e.kind}">${sign}${amount} ${esc(cur)}</span>
+      <span class="meta">${dateFmt(e.date)} · ${esc(where)}${e.category && e.description ? ` · ${esc(e.category)}` : ""}</span>
+    </button>
+    ${readonly ? "" : `<div class="entry-actions">
+      <button type="button" class="icon-btn" data-edit="${esc(e.id)}" aria-label="Modifica" title="Modifica">${ICON.edit}</button>
+      <button type="button" class="icon-btn danger" data-delete="${esc(e.id)}" aria-label="Elimina" title="Elimina">${ICON.trash}</button>
+    </div>`}
+  </div>`;
 }
 
 function renderList() {
@@ -348,6 +376,10 @@ function renderList() {
   $$("[data-edit]", el).forEach((b) => b.addEventListener("click", () => {
     app.editing = app.entries.find((x) => x.id === b.dataset.edit);
     show("new");
+  }));
+  $$("[data-delete]", el).forEach((b) => b.addEventListener("click", async () => {
+    const e = app.entries.find((x) => x.id === b.dataset.delete);
+    if (e && (await removeEntry(e))) renderList();
   }));
   $$("[data-resend]", el).forEach((b) => b.addEventListener("click", () => exportEntries(batches.get(b.dataset.resend), b)));
   $("[data-clear]", el)?.addEventListener("click", async () => {
@@ -492,6 +524,12 @@ function watchUpdates() {
 
 // -------------------------------------------------------------------- init --
 async function init() {
+  $("#btn-mask").addEventListener("click", async () => {
+    app.prefs.hideAmounts = !app.prefs.hideAmounts;
+    applyMask();
+    if (app.screen === "list") renderList();
+    await savePrefs();
+  });
   $$("[data-tab]").forEach((b) => b.addEventListener("click", () => {
     if (app.screen === "new" && app.editing && b.dataset.tab !== "new") app.editing = null;
     show(b.dataset.tab);
@@ -499,7 +537,7 @@ async function init() {
   try {
     const [pairing, prefs, entries] = await Promise.all([store.getValue("pairing"), store.getValue("prefs"), store.allEntries()]);
     app.pairing = pairing || null;
-    app.prefs = { theme: "system", last: {}, ...(prefs || {}) };
+    app.prefs = { theme: "system", last: {}, hideAmounts: false, ...(prefs || {}) };
     // Exported entries are kept 30 days for "Esporta di nuovo", then removed.
     const expired = entries.filter((e) => e.status === "exported" && daysAgo(e.exportedAt) > KEEP_EXPORTED_DAYS);
     if (expired.length) await store.deleteEntries(expired.map((e) => e.id));
@@ -508,6 +546,7 @@ async function init() {
     toast(`Archivio del telefono non disponibile: ${e.message}`, true);
   }
   applyTheme(app.prefs.theme);
+  applyMask();
   updateCount();
   store.persist();
   show(app.pairing ? "new" : "pair");

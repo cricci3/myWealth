@@ -234,7 +234,7 @@ Ogni milestone termina con test verdi e verifica della UI in modalità demo.
 | M12 | Finestra app in Brave (§15). |
 | M13 | Desktop – smartphone, lato desktop: abbinamento con QR, "configurazione mobile", import dei file cifrati da selezione file e dalla cartella in arrivo, deduplica per `id` (§16.4–16.6). |
 | M14 | PWA smartphone: inserimento offline, voci in sospeso, abbinamento da QR, export cifrato e condivisione via email, pubblicazione su GitHub Pages (§16.2–16.3, §16.7). |
-| M15 | Importi oscurati: pulsante occhio nell'intestazione, scorciatoia, stato ricordato, opzione "Avvia con importi oscurati" (§8.7). |
+| M15 | Importi oscurati: pulsante occhio nell'intestazione, scorciatoia, stato ricordato, opzione "Avvia con importi oscurati" (§8.7). Sulla PWA: occhio nella scheda Voci e pulsanti Modifica/Elimina per voce (§16.3). |
 
 ---
 
@@ -366,6 +366,7 @@ Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
 - I formattatori numerici sono stati spostati da `core.js` a `format.js` (senza DOM, testabile con Node); `core.js` li riesporta. `num()` resta sempre in chiaro ed è riservato a cambi, tassi e prezzi; le quote possedute usano `qty()`, i pesi dell'allocazione `share()`.
 - Oscurare toglie segno e colore di guadagni/perdite (`tone()` restituisce una classe vuota); il segno che dipende solo dal tipo di operazione (spesa/entrata) resta.
 - I dialoghi già aperti non si aggiornano quando si cambia lo stato: lo fanno alla riapertura.
+- PWA (versione 1.1.0): l'occhio vale solo per la scheda Voci e non ha un'opzione "avvia oscurato": ricorda semplicemente l'ultimo stato. Modifica/Elimina sono solo sulle voci in sospeso; quelle esportate restano di sola lettura (si cancellano con "Svuota esportate").
 - Se il salvataggio dell'impostazione fallisce, lo stato vale comunque per la finestra corrente (è una scelta di privacy) e compare un avviso.
 
 **Smartphone (M13–M14)**
@@ -420,7 +421,8 @@ Nessun server acceso 24/7, nessun account o servizio aggiuntivo.
   - Spesa: conto origine. Entrata: conto destinazione. Trasferimento: origine e destinazione; se le valute differiscono, anche l'importo ricevuto. Commissioni di trasferimento e investimenti **non** sono gestiti dal telefono.
   - Il simbolo della valuta segue il conto scelto. Nessun controvalore EUR (niente rete): lo calcola il desktop all'import.
   - Ultimi conto e categoria usati preselezionati.
-- **Voci**: elenco delle voci in sospeso (modificabili, eliminabili) e di quelle già esportate (sola lettura, con data di export; "Esporta di nuovo" per rimandare un invio andato perso). Le voci esportate si cancellano dopo 30 giorni o con "Svuota esportate".
+- **Voci**: elenco delle voci in sospeso, ognuna con i pulsanti **Modifica** (matita) ed **Elimina** (cestino, con conferma: la voce è cancellata dal telefono e non verrà esportata); anche toccare la voce apre la modifica. Sotto, le voci già esportate (sola lettura, con data di export; "Esporta di nuovo" per rimandare un invio andato perso). Le voci esportate si cancellano dopo 30 giorni o con "Svuota esportate".
+  - Pulsante a forma di occhio nell'intestazione, visibile **solo** in questa scheda: nasconde gli importi delle voci (`−••••• EUR`; restano segno legato al tipo, valuta, date, conti, categorie e descrizioni). Lo stato è ricordato nelle preferenze del telefono (IndexedDB). Il modulo di modifica mostra sempre l'importo, che serve per correggerlo. È l'equivalente di §8.7 sul telefono.
 - **Esporta**: numero di voci in sospeso e pulsante "Esporta e invia".
 - **Impostazioni**: stato dell'abbinamento e data della configurazione, "Abbina / Aggiorna configurazione" (scansione QR), "Rimuovi abbinamento" (cancella chiave e configurazione), tema.
 - Prima dell'abbinamento la PWA mostra solo la schermata di abbinamento: senza configurazione non conosce conti e categorie.
