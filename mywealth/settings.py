@@ -14,6 +14,9 @@ DEFAULTS: dict = {
     "home_range": "90",  # default range of the Home chart
     "backup_keep": 10,  # automatic backups kept in <data dir>/backups
     "onboarded": False,  # first-run screen already answered
+    "launch_mode": "app",  # app: Edge window without address bar; browser: default browser tab
+    "idle_minutes": 5,  # stop the server when no window has been open for this long (0 = never)
+    "port": 8777,  # local port (the next free one is used if busy)
 }
 
 # Settings tied to this computer: never taken from an imported archive.
@@ -22,10 +25,11 @@ MACHINE_KEYS = ("port", "launch_mode", "idle_minutes", "autostart")
 _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
     "home_range": ("30", "60", "90", "max"),
+    "launch_mode": ("app", "browser"),
 }
 
 # key -> (min, max) for integer settings
-_RANGES: dict[str, tuple[int, int]] = {"backup_keep": (1, 100)}
+_RANGES: dict[str, tuple[int, int]] = {"backup_keep": (1, 100), "idle_minutes": (0, 1440), "port": (1024, 65535)}
 
 
 class SettingsError(ValidationError):

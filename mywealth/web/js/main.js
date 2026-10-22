@@ -132,6 +132,15 @@ async function init() {
   showView();
   watchFx();
   onboarding();
+  heartbeat();
+}
+
+// Tells the server a window is open: without heartbeats it stops after the idle time.
+function heartbeat() {
+  const beat = () => { if (!$("#closed").hidden) return; api("POST", "/api/heartbeat").catch(() => {}); };
+  beat();
+  setInterval(beat, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) beat(); });
 }
 
 // First run (empty database): start from scratch, import from another PC or try the demo.

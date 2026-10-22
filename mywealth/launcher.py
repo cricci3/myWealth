@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -11,6 +13,8 @@ from pathlib import Path
 
 from . import instance
 from .errors import AppError
+
+log = logging.getLogger(__name__)
 
 NO_WINDOW = 0x08000000 if sys.platform.startswith("win") else 0  # CREATE_NO_WINDOW
 
@@ -47,3 +51,35 @@ def open_folder(path: Path) -> None:
         subprocess.Popen(["open", str(path)])
     else:
         subprocess.Popen(["xdg-open", str(path)])
+
+
+def edge_path() -> str | None:
+    """Microsoft Edge, always present on Windows 10/11."""
+    if not sys.platform.startswith("win"):
+        return None
+    for base in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+        if base:
+            p = Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            if p.exists():
+                return str(p)
+    return shutil.which("msedge")
+
+
+def open_window(url: str, data_dir: Path, mode: str = "app") -> None:
+    """Open the UI: a dedicated Edge window without address bar and tabs (separate profile
+    in <data dir>/browser-profile), or a tab of the default browser."""
+    import webbrowser
+
+    edge = edge_path() if mode == "app" else None
+    if edge:
+        profile = Path(data_dir) / "browser-profile"
+        try:
+            subprocess.Popen(
+                [edge, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                 "--window-size=1280,860"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            return
+        except OSError:
+            log.warning("Could not start Edge, using the default browser")
+    webbrowser.open(url)

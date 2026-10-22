@@ -115,6 +115,34 @@ function mount(el) {
     </div>
     <div class="card table-card"><div id="backups-table"></div></div>
 
+    <h2 class="section-title">Avvio e finestra</h2>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name">Apri myWealth in</div>
+          <div class="setting-hint" id="edge-hint">Finestra dedicata (Microsoft Edge, senza barra degli indirizzi) o scheda del browser predefinito.</div>
+        </div>
+        <select class="input auto-w" data-setting-select="launch_mode" aria-label="Modalità di apertura">
+          <option value="app">Finestra app</option><option value="browser">Scheda del browser</option>
+        </select>
+      </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Chiusura automatica</div>
+          <div class="setting-hint">Il server si ferma quando nessuna finestra di myWealth è aperta da questo numero di minuti (0 = mai).</div>
+        </div>
+        <div class="input-unit small-input"><input class="input" type="number" min="0" max="1440" data-setting-num="idle_minutes" aria-label="Minuti"><span class="unit">min</span></div>
+      </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Porta del server</div>
+          <div class="setting-hint">Vale dal prossimo avvio; se è occupata si usa la successiva libera.</div>
+        </div>
+        <input class="input small-num" type="number" min="1024" max="65535" data-setting-num="port" aria-label="Porta">
+      </div>
+      <div data-shortcuts></div>
+    </div>
+
     <h2 class="section-title">Informazioni</h2>
     <div class="card"><dl class="info" id="info"></dl></div>`;
   $$("[data-theme-choice]", el).forEach((b) =>
@@ -162,6 +190,16 @@ function mount(el) {
       toast(e.message, true);
     }
   });
+  $$("[data-setting-num]", el).forEach((input) => input.addEventListener("change", async () => {
+    const key = input.dataset.settingNum;
+    try {
+      state.settings = await api("PUT", "/api/settings", { [key]: Number(input.value) });
+      toast("Impostazione salvata");
+    } catch (e) {
+      input.value = state.settings[key];
+      toast(e.message, true);
+    }
+  }));
   $$("[data-setting-select]", el).forEach((sel) => sel.addEventListener("change", async () => {
     try {
       state.settings = await api("PUT", "/api/settings", { [sel.dataset.settingSelect]: sel.value });
@@ -191,6 +229,8 @@ async function show() {
   });
   $$("[data-setting]", root).forEach((input) => { input.checked = !!state.settings[input.dataset.setting]; });
   $$("[data-setting-select]", root).forEach((sel) => { sel.value = state.settings[sel.dataset.settingSelect]; });
+  $$("[data-setting-num]", root).forEach((input) => { input.value = state.settings[input.dataset.settingNum]; });
+  renderShortcuts();
   $("#tax-rate", root).value = String(state.settings.interest_tax_rate ?? "").replace(".", ",");
   await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
   await renderFx();
@@ -201,6 +241,35 @@ async function show() {
   $("#data-dir", root).textContent = state.status ? state.status.data_dir : "";
   $("#btn-open-dir", root).hidden = !!(state.status && state.status.demo);
   await renderBackups();
+}
+
+const SHORTCUTS = [
+  ["start_menu", "Menu Start", "Apri myWealth scrivendo “myWealth” dopo aver premuto il tasto Windows; puoi fissarlo sulla barra delle applicazioni."],
+  ["desktop", "Collegamento sul desktop", "Icona di myWealth sul desktop."],
+  ["startup", "Avvia all'accesso a Windows", "Apre myWealth automaticamente quando accedi."],
+];
+
+async function renderShortcuts() {
+  const box = $("[data-shortcuts]", root);
+  let sys;
+  try { sys = await api("GET", "/api/system"); } catch (e) { return; }
+  if (!sys.edge) $("#edge-hint", root).textContent = "Microsoft Edge non trovato: si usa sempre una scheda del browser predefinito.";
+  if (!sys.shortcuts.supported || sys.demo) { box.innerHTML = ""; return; }
+  box.innerHTML = SHORTCUTS.map(([k, name, hint]) => `
+    <div class="setting">
+      <div><div class="setting-name">${name}</div><div class="setting-hint">${hint}</div></div>
+      <label class="switch"><input type="checkbox" data-shortcut="${k}" ${sys.shortcuts[k] ? "checked" : ""} aria-label="${name}"><span></span></label>
+    </div>`).join("") + (sys.shortcuts.gui_executable ? "" : `<p class="dlg-note">mywealth-gui non trovato nell'ambiente: i collegamenti useranno uno script VBS che avvia “uv run”.</p>`);
+  $$("[data-shortcut]", box).forEach((input) => input.addEventListener("change", async () => {
+    input.disabled = true;
+    try {
+      await api("POST", "/api/shortcuts", { kind: input.dataset.shortcut, create: input.checked });
+      toast(input.checked ? "Collegamento creato" : "Collegamento rimosso");
+    } catch (e) {
+      input.checked = !input.checked;
+      toast(e.message, true);
+    } finally { input.disabled = false; }
+  }));
 }
 
 const fmtSize = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);

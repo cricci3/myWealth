@@ -16,6 +16,7 @@ import mimetypes
 import secrets
 import socket
 import threading
+import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -51,6 +52,8 @@ class AppContext:
     server: Any = field(default=None, repr=False)
     market: market.Provider | None = None  # None: Yahoo (DemoProvider in demo mode)
     jobs: dict = field(default_factory=dict)  # background job name -> last state
+    last_heartbeat: float = field(default_factory=time.monotonic)  # last sign of an open window
+    stopping: threading.Event = field(default_factory=threading.Event, repr=False)
     _job_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def __post_init__(self) -> None:
@@ -123,6 +126,7 @@ class MyWealthServer(ThreadingHTTPServer):
         return self.server_address[1]
 
     def request_shutdown(self) -> None:
+        self.ctx.stopping.set()
         # shutdown() blocks until serve_forever() returns: never call it from a request thread.
         threading.Thread(target=self.shutdown, daemon=True).start()
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from . import __version__, accounts, analytics, archive, categories, csvio, fx, home, investments, money, savings, settings, transactions
+from .errors import ValidationError
 from .router import Request, Response, Router
 
 log = logging.getLogger(__name__)
@@ -431,3 +432,36 @@ def data_dir_open(ctx, req: Request):
 
     launcher.open_folder(ctx.data_dir)
     return {"ok": True}
+
+
+# -------------------------------------------------------------- window, shortcuts
+
+
+@routes.post("heartbeat")
+def heartbeat(ctx, req: Request):
+    import time
+
+    ctx.last_heartbeat = time.monotonic()
+    return {"ok": True}
+
+
+@routes.get("system")
+def system_info(ctx, req: Request):
+    from . import launcher, shortcuts
+
+    return {"shortcuts": shortcuts.status(), "edge": launcher.edge_path() is not None, "demo": ctx.demo}
+
+
+@routes.post("shortcuts")
+def shortcuts_change(ctx, req: Request):
+    from . import shortcuts
+
+    body = req.body()
+    kind = body.get("kind")
+    if kind not in ("start_menu", "desktop", "startup"):
+        raise ValidationError("Collegamento non valido.")
+    if body.get("create"):
+        shortcuts.create(kind, vbs=bool(body.get("vbs")), data_dir=ctx.data_dir)
+    else:
+        shortcuts.remove(kind)
+    return shortcuts.status()
