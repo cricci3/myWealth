@@ -21,7 +21,7 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 | M11 | (Opzionale) Cifratura dei dati e dell'archivio | ⏸️ Rimandata | — |
 | M12 | Finestra app in Brave (poi Edge, poi browser predefinito) | ✅ Fatta | `f13189f` |
 | M13 | Smartphone, lato desktop: abbinamento QR, cartella in arrivo, import cifrato con deduplica | ✅ Fatta | `f080941` |
-| M14 | App smartphone (PWA): inserimento offline, export cifrato, condivisione, GitHub Pages | ✅ Fatta | — |
+| M14 | App smartphone (PWA): inserimento offline, export cifrato, condivisione, GitHub Pages | ✅ Fatta | `184169a` |
 
 ## Da fare
 
