@@ -37,6 +37,9 @@ TOKEN_PLACEHOLDER = "__MYWEALTH_TOKEN__"
 ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 MAX_BODY = 1_000_000
 MAX_UPLOAD = 200_000_000  # raw uploads (archives, CSV files)
+# API routes usable before the PIN has been entered
+OPEN_WHEN_LOCKED = {("GET", "status"), ("GET", "settings"), ("GET", "lock"), ("POST", "lock"), ("POST", "unlock"),
+                    ("POST", "heartbeat"), ("POST", "shutdown")}
 
 mimetypes.add_type("text/javascript", ".js")  # the Windows registry may say otherwise
 mimetypes.add_type("text/css", ".css")
@@ -54,9 +57,14 @@ class AppContext:
     jobs: dict = field(default_factory=dict)  # background job name -> last state
     last_heartbeat: float = field(default_factory=time.monotonic)  # last sign of an open window
     stopping: threading.Event = field(default_factory=threading.Event, repr=False)
+    gate: Any = field(default=None, repr=False)  # security.Gate: optional unlock PIN
     _job_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def __post_init__(self) -> None:
+        from .security import Gate
+
+        if self.gate is None:
+            self.gate = Gate()
         if self.market is None:
             self.market = market.DemoProvider() if self.demo else market.YahooProvider()
 
@@ -264,9 +272,12 @@ class Handler(BaseHTTPRequestHandler):
     def _api(self, method: str, path: str, query: dict[str, str]) -> None:
         from .api import routes  # late import: api imports the domain modules
 
-        found = routes.match(method, path[len("/api/"):].rstrip("/"))
+        route = path[len("/api/"):].rstrip("/")
+        found = routes.match(method, route)
         if not found:
             raise ApiError(404, "Endpoint non trovato.")
+        if (method, route) not in OPEN_WHEN_LOCKED and self.ctx.gate.locked(self.ctx.db):
+            raise ApiError(423, "myWealth è bloccato: inserisci il PIN.")
         func, params = found
         req = Request(
             method=method,

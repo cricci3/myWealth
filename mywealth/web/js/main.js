@@ -104,6 +104,41 @@ async function exitApp() {
 }
 
 // -------------------------------------------------------------------- init --
+// Unlock screen (optional PIN): shown before anything else is loaded.
+async function unlockIfNeeded() {
+  let s;
+  try { s = await api("GET", "/api/lock"); } catch (e) { return; }
+  if (!s.locked) return;
+  await new Promise((resolve) => {
+    const box = document.createElement("div");
+    box.className = "onboarding lock-screen";
+    box.innerHTML = `
+      <form class="onboarding-box card lock-box" autocomplete="off">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M15 8h5v5"/></svg></span>
+        <h2>myWealth è bloccato</h2>
+        <label class="field">PIN<input type="password" inputmode="numeric" maxlength="12" name="pin" autofocus></label>
+        <div class="dlg-error" hidden></div>
+        <button class="btn btn-primary" type="submit">Sblocca</button>
+      </form>`;
+    document.body.appendChild(box);
+    const form = box.querySelector("form"), err = box.querySelector(".dlg-error"), input = form.elements.pin;
+    input.focus();
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/api/unlock", { pin: input.value });
+        box.remove();
+        resolve();
+      } catch (e) {
+        err.textContent = e.message;
+        err.hidden = false;
+        input.value = "";
+        input.focus();
+      }
+    });
+  });
+}
+
 async function init() {
   const today = new Date().toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   $("#today").textContent = today;
@@ -116,6 +151,7 @@ async function init() {
   $("#btn-exit").addEventListener("click", exitApp);
   systemDark.addEventListener("change", () => window.dispatchEvent(new Event("mw-theme")));
 
+  await unlockIfNeeded();
   try {
     const [settings, status, currencies] = await Promise.all([
       api("GET", "/api/settings"), api("GET", "/api/status"), api("GET", "/api/currencies"), loadAccounts(), loadRates(),

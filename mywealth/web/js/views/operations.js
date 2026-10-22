@@ -4,7 +4,7 @@ import {
   loadAccounts, loadCategories, money, openDialog, options, parseNum, state, toast, todayISO,
 } from "../core.js";
 
-import { csvImportDialog } from "../csvimport.js";
+import { bankImportDialog, csvImportDialog } from "../csvimport.js";
 
 const KIND_LABELS = { expense: "Spesa", income: "Entrata", transfer: "Trasferimento", interest: "Interessi", fee: "Commissione", buy: "Acquisto", sell: "Vendita" };
 const PAGE = 30;
@@ -20,6 +20,7 @@ function mount(el) {
       <button class="btn btn-quick income" type="button" data-new="income">${ICON.plus}Entrata</button>
       <button class="btn btn-quick transfer" type="button" data-new="transfer">${ICON.plus}Trasferimento</button>
       <span class="spacer"></span>
+      <button class="btn" type="button" id="btn-bank">${ICON.upload}Estratto conto</button>
       <button class="btn" type="button" id="btn-import">${ICON.upload}Importa CSV</button>
     </div>
     <details class="filters-wrap" id="filters-wrap">
@@ -45,6 +46,7 @@ function mount(el) {
   window.addEventListener("resize", () => { if (window.innerWidth > 560) wrap.open = true; });
   $$("[data-new]", el).forEach((b) => b.addEventListener("click", () => transactionDialog(b.dataset.new)));
   $("#btn-import", el).addEventListener("click", () => csvImportDialog());
+  $("#btn-bank", el).addEventListener("click", () => bankImportDialog());
   const form = $("#tx-filters", el);
   let timer;
   form.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(applyFilters, 250); });

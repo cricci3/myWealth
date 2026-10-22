@@ -53,10 +53,12 @@ function renderActions() {
   if (!actions) return;
   actions.innerHTML = view.current == null ? "" : `
     <button class="icon-btn bordered" type="button" id="inv-refresh" title="Aggiorna prezzi e cambi">${ICON.refresh}</button>
+    <button class="btn btn-ghost" type="button" id="inv-pt" title="Importa un portfolio.json di PortfolioTracker">${ICON.upload}PortfolioTracker</button>
     <button class="btn" type="button" id="inv-dividend">${ICON.plus}Dividendo</button>
     <button class="btn btn-primary" type="button" id="inv-add">${ICON.plus}Asset</button>`;
   if (view.current == null) return;
   $("#inv-add", actions).addEventListener("click", () => addAssetDialog());
+  $("#inv-pt", actions).addEventListener("click", () => ptImportDialog());
   $("#inv-dividend", actions).addEventListener("click", async () => {
     await loadCategories();
     const cat = state.categories.find((c) => c.system_key === "dividends");
@@ -449,6 +451,53 @@ function detailDialog(a) {
           await afterChange("Operazione eliminata");
         } catch (e) { toast(e.message, true); }
       }));
+    },
+  });
+}
+
+function ptImportDialog() {
+  const d = view.data;
+  let data = null;
+  const sources = state.accounts.filter((a) => !a.archived && a.id !== d.account.id && a.currency === d.account.currency);
+  return openDialog({
+    title: `Importa da PortfolioTracker · ${d.account.name}`,
+    wide: true,
+    submitLabel: "Importa",
+    render(body, { dialog }) {
+      const submit = $('button[type="submit"]', dialog);
+      submit.disabled = true;
+      body.innerHTML = `
+        <p class="dlg-note">Scegli il file <span class="mono">portfolio.json</span> di PortfolioTracker. Ogni contributo diventa un acquisto su questo conto;
+          i soldi arrivano dalla liquidità del conto oppure da un altro conto, con un trasferimento per ogni contributo.</p>
+        <div class="grid2">
+          <label class="field">File<input type="file" accept=".json,application/json" data-file class="file-input"></label>
+          <label class="field">Provenienza dei soldi<select data-source>
+            <option value="">Liquidità del conto (${m(d.summary.liquidity)})</option>
+            ${sources.map((a) => `<option value="${a.id}">Trasferimenti da ${esc(a.name)}</option>`).join("")}</select></label>
+        </div>
+        <div data-summary></div>`;
+      $("[data-file]", body).addEventListener("change", async (ev) => {
+        const f = ev.target.files[0];
+        if (!f) return;
+        data = await f.arrayBuffer();
+        try {
+          const s = await api("POST", `/api/investments/${d.account.id}/portfoliotracker/preview`, data);
+          $("[data-summary]", body).innerHTML = `
+            <p>${s.assets.length} asset, ${s.contributions} contributi dal ${dateFmt(s.first_date)} per <b>${money(s.total, s.base_currency)}</b>.</p>
+            <div class="table-card"><div><table class="table compact"><thead><tr><th>Ticker</th><th>Nome</th><th class="num">Contributi</th><th class="num">Importo</th></tr></thead>
+            <tbody>${s.assets.map((a) => `<tr><td>${esc(a.ticker)}</td><td>${esc(a.name)}</td><td class="num">${a.contributions}</td><td class="num">${money(a.amount, s.base_currency)}</td></tr>`).join("")}</tbody></table></div></div>`;
+          submit.disabled = false;
+        } catch (e) {
+          $("[data-summary]", body).innerHTML = `<div class="dlg-error">${esc(e.message)}</div>`;
+          submit.disabled = true;
+        }
+      });
+    },
+    async onSubmit(form) {
+      const source = form.querySelector("[data-source]").value;
+      const res = await api("POST", `/api/investments/${d.account.id}/portfoliotracker${source ? `?source=${source}` : ""}`, data);
+      await afterChange(`${res.assets} asset e ${res.buys} acquisti importati`);
+      return res;
     },
   });
 }

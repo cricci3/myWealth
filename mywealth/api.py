@@ -465,3 +465,111 @@ def shortcuts_change(ctx, req: Request):
     else:
         shortcuts.remove(kind)
     return shortcuts.status()
+
+
+@routes.post("investments/<id>/portfoliotracker/preview")
+def pt_preview(ctx, req: Request):
+    from . import ptimport
+
+    return ptimport.summary(req.raw())
+
+
+@routes.post("investments/<id>/portfoliotracker")
+def pt_import(ctx, req: Request):
+    from . import ptimport
+
+    out = ptimport.import_portfolio(ctx.db, req.raw(), req.params["id"], req.q("source"))
+    refresh_market(ctx, wait=True)
+    return out
+
+
+
+# ------------------------------------------------------------ bank statements
+
+
+def _bank_text(ctx, req: Request) -> str:
+    import json
+
+    from . import bankcsv
+
+    try:
+        mapping = json.loads(req.q("mapping", "{}"))
+    except ValueError:
+        raise ValidationError("Mappatura non valida.") from None
+    if not isinstance(mapping, dict):
+        raise ValidationError("Mappatura non valida.")
+    return bankcsv.convert(ctx.db, req.raw(), mapping, req.q("account"), req.q("expense_category", "Altro"),
+                           req.q("income_category", "Altro"))
+
+
+@routes.post("import/bank/sample")
+def bank_sample(ctx, req: Request):
+    from . import bankcsv
+
+    return bankcsv.sample(req.raw(), req.q_int("skip_rows", 0))
+
+
+@routes.post("import/bank/preview")
+def bank_preview(ctx, req: Request):
+    return csvio.preview(ctx.db, _bank_text(ctx, req), req.q("create_categories") == "1")
+
+
+@routes.post("import/bank")
+def bank_import(ctx, req: Request):
+    return csvio.import_csv(ctx.db, _bank_text(ctx, req), req.q("create_categories") == "1")
+
+
+@routes.get("import/bank/mappings")
+def bank_mappings(ctx, req: Request):
+    from . import bankcsv
+
+    return bankcsv.list_mappings(ctx.db)
+
+
+@routes.post("import/bank/mappings")
+def bank_mapping_save(ctx, req: Request):
+    from . import bankcsv
+
+    return bankcsv.save_mapping(ctx.db, req.body())
+
+
+@routes.delete("import/bank/mappings/<name:str>")
+def bank_mapping_delete(ctx, req: Request):
+    from urllib.parse import unquote
+
+    from . import bankcsv
+
+    return bankcsv.delete_mapping(ctx.db, unquote(str(req.params["name"])))
+
+
+
+# ------------------------------------------------------------------------ PIN
+
+
+@routes.get("lock")
+def lock_state(ctx, req: Request):
+    from . import security
+
+    return {"pin_set": security.is_set(ctx.db), "locked": ctx.gate.locked(ctx.db)}
+
+
+@routes.post("unlock")
+def unlock(ctx, req: Request):
+    ctx.gate.unlock(ctx.db, str(req.body().get("pin") or ""))
+    return {"ok": True}
+
+
+@routes.post("lock")
+def lock_now(ctx, req: Request):
+    ctx.gate.lock()
+    return {"ok": True}
+
+
+@routes.put("pin")
+def change_pin(ctx, req: Request):
+    from . import security
+
+    body = req.body()
+    security.set_pin(ctx.db, str(body.get("new") or ""), body.get("current"))
+    ctx.gate.unlocked = True  # who set it is the one using the app now
+    return {"pin_set": security.is_set(ctx.db)}

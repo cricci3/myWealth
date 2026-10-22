@@ -330,6 +330,12 @@ Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
 - Backup automatico all'avvio solo se il database non è vuoto (e mai in demo).
 - "Prova con dati demo" dalla schermata di primo avvio apre un'istanza demo separata (altra porta, dati temporanei).
 
+**M11 (opzionale)**
+- Cifratura dei dati e dell'archivio: **non implementata**. Richiede una dipendenza compilata (`cryptography`/SQLCipher) che può essere bloccata da AppLocker/WDAC: va decisa con l'utente.
+- PIN di sblocco: PBKDF2-SHA256 con sale, blocca UI e API dell'istanza in esecuzione; dopo 5 tentativi errati attesa di 30 secondi. Non cifra i dati.
+- Mappature CSV per banche: invece di formati fissi per banca (non verificabili), mappatura delle colonne scelta dall'utente e salvabile con il nome della banca; le righe passano dall'import normale.
+- Import da PortfolioTracker: il portafoglio deve avere la stessa valuta del conto; i contributi diventano acquisti, finanziati dalla liquidità o da un trasferimento per contributo da un altro conto; tutto o niente.
+
 **Avvio**
 - La chiusura per inattività vale solo quando è l'app ad aprire la finestra (non con `--no-browser`, usato in sviluppo).
 - Formato dei numeri: `1.234,56` (default) o `1,234.56`; date sempre gg/mm/aaaa e testi in italiano.

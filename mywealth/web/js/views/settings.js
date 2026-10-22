@@ -124,6 +124,21 @@ function mount(el) {
     </div>
     <div class="card table-card"><div id="backups-table"></div></div>
 
+    <h2 class="section-title">PIN di sblocco</h2>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name" id="pin-state">PIN</div>
+          <div class="setting-hint">Chiede un PIN a ogni apertura di myWealth. Protegge l'app aperta, non cifra i dati sul disco (per quello serve BitLocker).</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm" type="button" id="btn-pin">Imposta PIN</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="btn-pin-off" hidden>Rimuovi</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="btn-lock" hidden>Blocca ora</button>
+        </div>
+      </div>
+    </div>
+
     <h2 class="section-title">Avvio e finestra</h2>
     <div class="card settings">
       <div class="setting">
@@ -159,6 +174,9 @@ function mount(el) {
   $("#btn-new-type", el).addEventListener("click", () => typeDialog());
   $("#btn-new-cat", el).addEventListener("click", () => categoryDialog());
   $("#btn-fx-manual", el).addEventListener("click", () => manualRateDialog());
+  $("#btn-pin", el).addEventListener("click", () => pinDialog(true));
+  $("#btn-pin-off", el).addEventListener("click", () => pinDialog(false));
+  $("#btn-lock", el).addEventListener("click", () => api("POST", "/api/lock").then(() => location.reload()));
   $("#btn-export-all", el).addEventListener("click", () => exportAll().catch((e) => toast(e.message, true)));
   $("#btn-import-all", el).addEventListener("click", () => importAll());
   $("#btn-open-dir", el).addEventListener("click", () => api("POST", "/api/data-dir/open").catch((e) => toast(e.message, true)));
@@ -241,6 +259,7 @@ async function show() {
   $$("[data-setting-select]", root).forEach((sel) => { sel.value = state.settings[sel.dataset.settingSelect]; });
   $$("[data-setting-num]", root).forEach((input) => { input.value = state.settings[input.dataset.settingNum]; });
   renderShortcuts();
+  renderPin();
   $("#tax-rate", root).value = String(state.settings.interest_tax_rate ?? "").replace(".", ",");
   await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
   await renderFx();
@@ -251,6 +270,39 @@ async function show() {
   $("#data-dir", root).textContent = state.status ? state.status.data_dir : "";
   $("#btn-open-dir", root).hidden = !!(state.status && state.status.demo);
   await renderBackups();
+}
+
+async function renderPin() {
+  const s = await api("GET", "/api/lock");
+  $("#pin-state", root).textContent = s.pin_set ? "PIN attivo" : "PIN non impostato";
+  $("#btn-pin", root).textContent = s.pin_set ? "Cambia PIN" : "Imposta PIN";
+  $("#btn-pin-off", root).hidden = !s.pin_set;
+  $("#btn-lock", root).hidden = !s.pin_set;
+  root.dataset.pinSet = s.pin_set ? "1" : "";
+}
+
+function pinDialog(setting) {
+  const hasPin = !!root.dataset.pinSet;
+  return openDialog({
+    title: setting ? (hasPin ? "Cambia PIN" : "Imposta PIN") : "Rimuovi PIN",
+    submitLabel: setting ? "Salva" : "Rimuovi",
+    danger: !setting,
+    render(body) {
+      body.innerHTML = `
+        ${hasPin ? `<label class="field">PIN attuale<input name="current" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></label>` : ""}
+        ${setting ? `<label class="field">Nuovo PIN (4–12 cifre)<input name="new" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></label>
+        <label class="field">Ripeti il nuovo PIN<input name="again" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></label>
+        <p class="dlg-note">Se dimentichi il PIN non c'è modo di recuperarlo dall'app.</p>` : ""}`;
+    },
+    async onSubmit(form) {
+      const d = formData(form);
+      if (setting && d.new !== d.again) throw new Error("I due PIN non coincidono.");
+      await api("PUT", "/api/pin", { current: d.current || "", new: setting ? d.new : "" });
+      toast(setting ? "PIN salvato" : "PIN rimosso");
+      await renderPin();
+      return true;
+    },
+  });
 }
 
 const SHORTCUTS = [

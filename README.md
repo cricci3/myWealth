@@ -57,6 +57,9 @@ Se l'app è già aperta, un nuovo avvio riapre la finestra dell'istanza in esecu
 2. **Operazioni**: “+ Spesa”, “+ Entrata”, “+ Trasferimento”. Tra valute diverse indica sia l'importo inviato sia quello ricevuto (il secondo è proposto al cambio del giorno). La commissione bancaria del trasferimento diventa una spesa collegata.
 3. **Investimenti**: una sottoscheda per conto investimenti. “+ Asset” cerca per ticker Yahoo, ISIN o nome; l'importo viene preso dalla liquidità del conto (se non basta, registra prima un trasferimento). Vendite: quote vendute + importo incassato.
 4. **Importa CSV** (Operazioni): scarica il modello, compila, controlla l'anteprima con gli errori per riga, conferma. L'import è tutto o niente.
+5. **Estratto conto** (Operazioni): importa il CSV dell'home banking scegliendo le colonne di data, importo (o uscite/entrate) e descrizione; salva la mappatura con il nome della banca per riusarla.
+6. **PortfolioTracker** (Investimenti): importa un `portfolio.json`; i contributi diventano acquisti, finanziati dalla liquidità del conto o da trasferimenti da un altro conto.
+7. **PIN di sblocco** (Impostazioni, facoltativo): chiede un PIN a ogni apertura. Protegge l'app aperta, non cifra i dati sul disco.
 
 Gli importi si possono scrivere sia `1.234,56` sia `1234.56`.
 
