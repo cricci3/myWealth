@@ -11,10 +11,16 @@ I dati restano sul computer, in `%APPDATA%\myWealth\` (modificabile con `MYWEALT
 
 ## Avvio
 
-_In sviluppo — i comandi saranno disponibili dopo la milestone M0._
+Serve [uv](https://docs.astral.sh/uv/).
 
 ```
 uv sync
-uv run mywealth          # dati reali
-uv run mywealth --demo   # dati sintetici, nessuna rete
+uv run mywealth          # dati reali, apre il browser
+uv run mywealth --demo   # database temporaneo, nessuna rete
+uv run pytest            # test
 ```
+
+Opzioni: `--port N` (default 8777, se occupata prova le successive), `--no-browser`.
+`mywealth-gui` fa lo stesso senza finestra di terminale; i log vanno in `<cartella dati>\logs\`.
+
+Se l'app è già aperta, un nuovo avvio riapre la finestra dell'istanza in esecuzione. Per chiuderla usa **Esci** nella barra laterale (o Ctrl+C nel terminale).

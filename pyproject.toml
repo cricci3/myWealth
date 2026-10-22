@@ -1,0 +1,34 @@
+[project]
+name = "mywealth"
+version = "0.1.0"
+description = "Personal finance tracker: accounts, expenses, income, transfers and investments, all shown in EUR. Runs locally."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "yfinance>=0.2.40",
+    "pandas>=2.0",
+    # Pinned: newer numpy releases are blocked by AppLocker/WDAC on the user's machine
+    # (DLL "blocked by an application control policy").
+    "numpy==2.1.3",
+]
+
+[project.scripts]
+mywealth = "mywealth.app:main"
+
+[project.gui-scripts]
+# Same entry point without a console window; logs go to <data dir>/logs/.
+mywealth-gui = "mywealth.app:gui_main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mywealth"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
