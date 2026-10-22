@@ -130,8 +130,8 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
         url = f"http://127.0.0.1:{lock}/"
         log.info("myWealth is already running at %s: opening it.", url)
         if not args.no_browser:
-            mode = _prefs(Database(data_dir / paths.DB_FILENAME))["launch_mode"]
-            launcher.open_window(url, data_dir, mode)
+            choice = _prefs(Database(data_dir / paths.DB_FILENAME))["app_browser"]
+            launcher.open_window(url, data_dir, choice)
         return 0
 
     try:
@@ -154,7 +154,7 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
             log.info("Data folder: %s", data_dir)
         log.info("Use the 'Esci' button in the app (or Ctrl+C) to stop.")
         if not args.no_browser:
-            threading.Timer(0.3, launcher.open_window, (url, data_dir, prefs["launch_mode"])).start()
+            threading.Timer(0.3, launcher.open_window, (url, data_dir, prefs["app_browser"])).start()
             # Without a console the only ways out are "Esci" and closing the window: stop
             # when the page has been gone for a while. Not with --no-browser (development).
             watch_idle(ctx, httpd)

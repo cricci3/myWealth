@@ -449,7 +449,7 @@ def heartbeat(ctx, req: Request):
 def system_info(ctx, req: Request):
     from . import launcher, shortcuts
 
-    return {"shortcuts": shortcuts.status(), "edge": launcher.edge_path() is not None, "demo": ctx.demo}
+    return {"shortcuts": shortcuts.status(), "browsers": launcher.available_browsers(), "demo": ctx.demo}
 
 
 @routes.post("shortcuts")

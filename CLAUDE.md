@@ -10,9 +10,10 @@ Personal desktop app (local web server + browser UI) to track bank accounts, exp
 - Develop and test only with `--demo` mode or with temporary data dirs (`tmp_path` in pytest, `MYWEALTH_DATA_DIR` pointing to a temp folder).
 - Never add CDNs, external fonts, analytics, telemetry or cloud services. All frontend assets are served locally.
 - The only allowed outbound traffic is Yahoo Finance, and requests must contain only tickers/currency pairs and dates — never amounts, account names or other user data. Demo mode makes no network calls at all.
+- Smartphone PWA (`mobile/`, SPEC §16): static code only, hosted on GitHub Pages; it makes no network calls after loading, and user data leaves the phone only AES-256-GCM-encrypted via the Web Crypto API. Never put real data, keys or test keys other than the documented test vector in `mobile/` or in the repo. Use only standard Web Crypto primitives — no home-made crypto.
 - The server binds only to `127.0.0.1`, checks the `Host` header and requires the per-run `X-MyWealth-Token` header on every API call. Do not weaken these checks.
 - Never commit databases, exports, backups, `.mywealth` archives or `.env` files. Never open a real `.mywealth` archive; tests build their own from temporary data.
-- Shortcuts, autostart entries and the Edge app-window profile are created on the user's machine only by the user (`--install-shortcuts` or Settings). Do not run those commands yourself.
+- Shortcuts, autostart entries and the Brave/Edge app-window profiles are created on the user's machine only by the user (`--install-shortcuts` or Settings). Do not run those commands yourself.
 
 ## Commands
 

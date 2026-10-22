@@ -15,18 +15,18 @@ DEFAULTS: dict = {
     "number_format": "it-IT",  # it-IT 1.234,56 | en-GB 1,234.56 (display only)
     "backup_keep": 10,  # automatic backups kept in <data dir>/backups
     "onboarded": False,  # first-run screen already answered
-    "launch_mode": "app",  # app: Edge window without address bar; browser: default browser tab
+    "app_browser": "auto",  # app window: auto (Brave, then Edge) | brave | edge | default (browser tab)
     "idle_minutes": 5,  # stop the server when no window has been open for this long (0 = never)
     "port": 8777,  # local port (the next free one is used if busy)
 }
 
 # Settings tied to this computer: never taken from an imported archive.
-MACHINE_KEYS = ("port", "launch_mode", "idle_minutes", "autostart")
+MACHINE_KEYS = ("port", "app_browser", "launch_mode", "idle_minutes", "autostart")
 
 _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
     "home_range": ("30", "60", "90", "max"),
-    "launch_mode": ("app", "browser"),
+    "app_browser": ("auto", "brave", "edge", "default"),
     "number_format": ("it-IT", "en-GB"),
 }
 
@@ -40,6 +40,8 @@ class SettingsError(ValidationError):
 
 def load(db: Database) -> dict:
     stored = db.get_settings()
+    if "app_browser" not in stored and stored.get("launch_mode") == "browser":
+        stored["app_browser"] = "default"  # setting of earlier versions: app window or browser tab
     return {k: stored.get(k, default) for k, default in DEFAULTS.items()}
 
 

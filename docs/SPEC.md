@@ -19,6 +19,8 @@
 | D7 | Codice di PortfolioTracker | Copiato e adattato dentro myWealth (licenza MIT, stesso autore), non usato come dipendenza. Import opzionale dei dati da `portfolio.json`. |
 | D8 | Cambio PC | Un unico file archivio `.mywealth` con tutti i dati, esportato e importato con un pulsante; l'import sostituisce i dati, non li unisce (vedi §12). |
 | D9 | Avvio rapido | Collegamenti nel menu Start e sul desktop, creati dall'app; finestra in stile app senza barra del browser; nessuna finestra di terminale (vedi §13). |
+| D10 | Browser della finestra app | Brave (browser dell'utente su PC), poi Edge, poi browser predefinito; scelta nelle Impostazioni (vedi §15). |
+| D11 | Inserimento da smartphone | PWA per Chrome Android, dati solo sul telefono; export cifrato (AES-256-GCM, chiave abbinata via QR) inviato per email a se stessi; import sul desktop da file o dalla cartella Download (vedi §16). |
 
 ---
 
@@ -34,6 +36,7 @@ Gira in locale: un server Python su `127.0.0.1` apre la UI nel browser.
 - Uniche chiamate di rete: Yahoo Finance per cambi valuta e prezzi asset. Le richieste contengono **solo ticker/coppie valutarie e date, mai importi o nomi di conti**.
 - Nessuna CDN, font esterni, analytics o servizi cloud: tutto il frontend è servito localmente.
 - Impostazione "modalità offline" che disattiva ogni chiamata di rete.
+- Eccezione per lo smartphone (§16): la PWA è ospitata come sito statico (solo codice, nessun dato) e le operazioni registrate sul telefono escono dal telefono **solo cifrate**, in un allegato email che l'utente invia a se stesso.
 - Claude Code non deve mai leggere i dati reali: lo sviluppo usa la modalità `--demo` (dati sintetici, nessuna rete) e database temporanei nei test. Le regole sono in `CLAUDE.md` e `.claude/settings.json`.
 
 ### 2.2 Sicurezza del server locale
@@ -216,6 +219,9 @@ Ogni milestone termina con test verdi e verifica della UI in modalità demo.
 | M9 | Avvio rapido: finestra app, collegamenti menu Start/desktop con icona, chiusura per inattività, avvio con Windows opzionale. |
 | M10 | Impostazioni complete, rifiniture, README con guida "nuovo PC". |
 | M11 | (Opzionale) cifratura dati e dell'archivio, PIN, mappature CSV per banche, import da PortfolioTracker. |
+| M12 | Finestra app in Brave (§15). |
+| M13 | Desktop – smartphone, lato desktop: abbinamento con QR, "configurazione mobile", import dei file cifrati da selezione file e dalla cartella in arrivo, deduplica per `id` (§16.4–16.6). |
+| M14 | PWA smartphone: inserimento offline, voci in sospeso, abbinamento da QR, export cifrato e condivisione via email, pubblicazione su GitHub Pages (§16.2–16.3, §16.7). |
 
 ---
 
@@ -277,6 +283,8 @@ Obiettivo: aprire l'app come una normale applicazione Windows, senza VS Code né
 - Nota AppLocker/WDAC: va verificato che l'eseguibile in `.venv\Scripts` sia consentito (lo è già per l'attuale `uv run`). Se viene bloccato, alternativa: collegamento a `wscript.exe` con uno script `.vbs` che lancia `uv run --project "<cartella>" mywealth` a finestra nascosta.
 
 ### 13.3 Finestra "app"
+> Aggiornato da §15: il browser preferito è Brave, poi Edge.
+
 - All'avvio l'app si apre in una finestra dedicata senza barra degli indirizzi né schede, usando Microsoft Edge (sempre presente su Windows) in modalità `--app=http://127.0.0.1:<porta>/...`, con un profilo separato in `%APPDATA%\myWealth\browser-profile`.
 - Se Edge non è disponibile, o se l'utente preferisce, si apre una normale scheda del browser predefinito (impostazione).
 
@@ -339,3 +347,93 @@ Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
 **Avvio**
 - La chiusura per inattività vale solo quando è l'app ad aprire la finestra (non con `--no-browser`, usato in sviluppo).
 - Formato dei numeri: `1.234,56` (default) o `1,234.56`; date sempre gg/mm/aaaa e testi in italiano.
+
+---
+
+## 15. Browser della finestra app **[DECISIONE D10]**
+
+L'utente usa **Brave** su PC (e Chrome su Android). La finestra app di §13.3 diventa:
+
+- Ordine di ricerca: **Brave → Edge → browser predefinito** (scheda normale).
+- Percorsi di Brave: `%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe`, `%ProgramFiles(x86)%\...` e `%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe`.
+- Stessi parametri di Edge: `--app=<url>`, `--user-data-dir=<data dir>\browser-profile-brave` (profilo separato da quello personale dell'utente: niente estensioni, cronologia o sincronizzazione), `--no-first-run`, `--no-default-browser-check`, `--window-size`.
+- Impostazione "Browser della finestra app": Automatico (default) / Brave / Edge / Browser predefinito (scheda). Se il browser scelto non è installato, si usa il successivo e la UI lo segnala.
+- Brave Shields non interferisce con `127.0.0.1`; va comunque verificato che la pagina funzioni con Shields attivo (nessuna risorsa esterna, quindi nessun blocco atteso).
+- La Web Crypto API (necessaria in §16.5) è disponibile su `http://127.0.0.1`, che i browser Chromium considerano un contesto sicuro.
+
+---
+
+## 16. Inserimento da smartphone **[DECISIONE D11]**
+
+### 16.1 Obiettivo e flusso
+Registrare spese, entrate e trasferimenti dal telefono quando si è in giro, anche senza rete, e portarli sul desktop senza che i dati siano leggibili da terzi.
+
+1. **Telefono (PWA, Chrome Android):** inserisco le operazioni; restano sul telefono.
+2. **Esporta:** la PWA crea un file cifrato e apre il menu di condivisione di Android → Gmail → lo invio a me stesso.
+3. **PC:** apro la mail e scarico l'allegato, che finisce in `Download`.
+4. **App desktop:** trova il file nella cartella in arrivo (o lo seleziono a mano), lo decifra, mostra l'anteprima dell'import, confermo; il file viene cancellato.
+
+Nessun server acceso 24/7, nessun account o servizio aggiuntivo.
+
+### 16.2 PWA: struttura e privacy
+- Cartella `mobile/` nel repository: HTML/CSS/JS vanilla, nessun framework né build step, nessuna libreria esterna (né CDN). Stessi principi grafici della UI desktop (variabili CSS, tema chiaro/scuro), pensata per una mano sola e schermi piccoli.
+- Installabile ("Installa app" / "Aggiungi a schermata Home" in Chrome): `manifest.webmanifest`, icone, service worker che mette in cache tutti i file → funziona completamente **offline** dopo la prima apertura.
+- Pubblicata come sito statico su **GitHub Pages** tramite GitHub Actions. Il sito contiene solo codice, mai dati.
+  - Da verificare: GitHub Pages su piano gratuito richiede un repository pubblico. Se `myWealth` è privato, pubblicare `mobile/` in un repository pubblico separato (es. `mywealth-mobile`) tramite l'Action.
+- Nessuna chiamata di rete dopo il caricamento: Content-Security-Policy con `default-src 'self'; connect-src 'self'`, nessun analytics.
+- Dati in **IndexedDB** del telefono; all'avvio si richiede `navigator.storage.persist()` per evitare che Chrome li cancelli. Se ci sono voci non esportate da più di 7 giorni, la PWA lo ricorda.
+- Aggiornamenti: quando esiste una nuova versione, la PWA mostra "Aggiornamento disponibile" e si ricarica solo su conferma, mai durante un inserimento.
+
+### 16.3 PWA: schermate
+- **Nuova voce** (schermata iniziale): tre schede Spesa / Entrata / Trasferimento.
+  - Campi come in §6, con data (default oggi), importo con tastierino numerico (virgola o punto), conto e categoria da menu a tendina, descrizione.
+  - Spesa: conto origine. Entrata: conto destinazione. Trasferimento: origine e destinazione; se le valute differiscono, anche l'importo ricevuto. Commissioni di trasferimento e investimenti **non** sono gestiti dal telefono.
+  - Il simbolo della valuta segue il conto scelto. Nessun controvalore EUR (niente rete): lo calcola il desktop all'import.
+  - Ultimi conto e categoria usati preselezionati.
+- **Voci**: elenco delle voci in sospeso (modificabili, eliminabili) e di quelle già esportate (sola lettura, con data di export; "Esporta di nuovo" per rimandare un invio andato perso). Le voci esportate si cancellano dopo 30 giorni o con "Svuota esportate".
+- **Esporta**: numero di voci in sospeso e pulsante "Esporta e invia".
+- **Impostazioni**: stato dell'abbinamento e data della configurazione, "Abbina / Aggiorna configurazione" (scansione QR), "Rimuovi abbinamento" (cancella chiave e configurazione), tema.
+- Prima dell'abbinamento la PWA mostra solo la schermata di abbinamento: senza configurazione non conosce conti e categorie.
+
+### 16.4 Abbinamento e configurazione (QR)
+- Desktop, **Impostazioni → Smartphone**:
+  - "Abbina smartphone" genera una chiave casuale da 256 bit (CSPRNG: `secrets.token_bytes(32)`) e un identificativo `kid` (primi 8 byte esadecimali dello SHA-256 della chiave). La chiave è salvata nella cartella dati (`mobile_key.json`), mai nel repository.
+  - Mostra un **codice QR** con: versione, chiave, `kid` e la **configurazione mobile** = conti non archiviati (nome, valuta) + categorie non archiviate per natura (spesa / entrata / trasferimento). Sotto il QR, lo stesso contenuto come testo da copiare (alternativa alla fotocamera).
+  - "Mostra QR configurazione" rimostra lo stesso QR (stessa chiave) per aggiornare conti e categorie sul telefono dopo una modifica.
+  - "Rigenera chiave" (es. telefono perso): nuova chiave; i file cifrati con la vecchia vengono rifiutati, e la UI lo spiega.
+  - Il QR si genera localmente senza dipendenze compilate (libreria pura Python come `segno`, o JS vendorizzato in `web/`); se la configurazione supera la capacità di un QR, si usano più QR in sequenza.
+- Telefono: scansione con la fotocamera tramite l'API `BarcodeDetector` di Chrome Android; in alternativa incolla il testo. La chiave è importata come `CryptoKey` **non esportabile** e salvata in IndexedDB insieme alla configurazione.
+- Il QR contiene la chiave: la UI desktop avvisa di non fotografarlo né condividerlo, e lo nasconde dopo 2 minuti.
+
+### 16.5 Formato del file cifrato
+- Nome: `mywealth-AAAAMMGG-HHMM.txt`. Estensione `.txt` e tipo `text/plain` perché Chrome Android consente di condividere solo alcuni tipi di file (testo sì, tipi personalizzati no).
+- Contenuto (testo ASCII):
+  ```
+  MYWEALTH-ENC 1
+  <base64url(intestazione JSON)>.<base64url(testo cifrato)>
+  ```
+  - Intestazione: `{"v":1,"alg":"AES-256-GCM","kid":"…","iv":"<12 byte casuali, base64url>","created":"<ISO 8601>"}`. Nessun conteggio di voci né altri metadati.
+  - Cifratura **AES-256-GCM** via Web Crypto API, IV casuale nuovo per ogni file, intestazione usata come dati autenticati aggiuntivi (AAD): un'intestazione alterata fa fallire la decifratura.
+  - Testo in chiaro: CSV UTF-8 nel formato di import (§9) con in più le colonne `id` (UUID v4 generato sul telefono alla creazione della voce) e `creato_il`.
+- Solo primitive standard della Web Crypto API: nessun algoritmo o schema crittografico fatto in casa.
+
+### 16.6 Import sul desktop
+- **Da file:** Operazioni → "Importa da smartphone": selezione di uno o più file `.txt` (anche trascinandoli nella finestra).
+- **Cartella in arrivo:** impostazione "Cartella in arrivo" (default: `Download` dell'utente; modificabile; disattivabile). All'avvio e ogni 2 minuti mentre l'app è aperta, il server cerca file `mywealth-*.txt` che iniziano con `MYWEALTH-ENC 1`; se ne trova, la barra laterale mostra un badge "N file da smartphone" che apre l'import. Gli altri file della cartella non vengono mai letti.
+- **Decifratura nel browser:** il server Python non ha AES nella libreria standard e non si aggiungono dipendenze compilate (AppLocker). Il server passa alla pagina il contenuto del file e la chiave (solo su `127.0.0.1`, con token); la pagina decifra con la Web Crypto API e invia il CSV in chiaro all'anteprima di import esistente.
+- Errori chiari: `kid` diverso ("file cifrato con un'altra chiave: rifai l'abbinamento"), decifratura fallita ("file danneggiato o modificato"), versione sconosciuta.
+- **Deduplica per `id`:** nuova tabella `mobile_imported_ids` (id, data import). Le righe con `id` già importato sono saltate e indicate come "già importate" nell'anteprima: rinviare lo stesso file o due file con voci in comune non crea doppioni. Il controllo duplicati esistente (§14) resta come avviso per le altre righe.
+- Dopo la conferma l'import resta "tutto o niente" (§9). Solo a import riuscito il file viene **cancellato** (dalla cartella in arrivo o, se scelto da altrove, su conferma). File non importati restano dove sono.
+- Conti o categorie rinominati o archiviati sul desktop dopo l'ultimo aggiornamento della configurazione sul telefono: le righe interessate danno errore o richiedono di creare la categoria, come nell'import CSV; la UI suggerisce di aggiornare la configurazione sul telefono.
+
+### 16.7 Invio via email
+- "Esporta e invia" usa la **Web Share API** (`navigator.share({ files, title, text })`): Android apre il menu di condivisione e l'utente sceglie Gmail; oggetto e testo sono precompilati in modo neutro ("myWealth export", nessun dato). Il destinatario lo scrive l'utente (il proprio indirizzo; Gmail lo ricorda): una PWA non può inviare email da sola, e `mailto:` non supporta allegati.
+- Se `navigator.canShare({ files })` restituisce falso, si scarica il file sul telefono e lo si allega a mano.
+- Quando la condivisione si conclude, le voci passano a "esportate". La PWA non può sapere se la mail è stata davvero inviata: per questo le voci esportate restano disponibili per "Esporta di nuovo" e la deduplica per `id` rende innocuo un doppio invio.
+- Cosa vede il provider email: nome, dimensione e orario dell'allegato. Importi, conti, categorie e descrizioni sono cifrati. Dopo l'import si può eliminare la mail.
+
+### 16.8 Test
+- Logica della PWA (formato CSV, cifratura/decifratura, deduplica) testata nel browser Chromium preinstallato con Playwright, in modalità emulazione mobile e offline.
+- Vettori di test condivisi: un file cifrato con una chiave di test nota, decifrato dalla pagina desktop e confrontato con il CSV atteso.
+- Python: ricerca nella cartella in arrivo su una cartella temporanea (solo i file `mywealth-*.txt` con intestazione valida), deduplica `id`, cancellazione solo a import riuscito.
+- Da verificare sul telefono reale (in `TODO.md`): installazione della PWA, uso offline, scansione QR, condivisione su Gmail, persistenza dei dati dopo riavvio del telefono.

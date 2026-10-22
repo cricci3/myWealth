@@ -53,33 +53,66 @@ def open_folder(path: Path) -> None:
         subprocess.Popen(["xdg-open", str(path)])
 
 
-def edge_path() -> str | None:
-    """Microsoft Edge, always present on Windows 10/11."""
+def _find(rel: tuple[str, ...], exe: str, bases: tuple[str, ...]) -> str | None:
     if not sys.platform.startswith("win"):
         return None
-    for base in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+    for var in bases:
+        base = os.environ.get(var)
         if base:
-            p = Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            p = Path(base).joinpath(*rel, exe)
             if p.exists():
                 return str(p)
-    return shutil.which("msedge")
+    return shutil.which(exe)
 
 
-def open_window(url: str, data_dir: Path, mode: str = "app") -> None:
-    """Open the UI: a dedicated Edge window without address bar and tabs (separate profile
-    in <data dir>/browser-profile), or a tab of the default browser."""
+def brave_path() -> str | None:
+    """Brave, the user's browser on the PC (system-wide or per-user install)."""
+    return _find(("BraveSoftware", "Brave-Browser", "Application"), "brave.exe",
+                 ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"))
+
+
+def edge_path() -> str | None:
+    """Microsoft Edge, always present on Windows 10/11."""
+    return _find(("Microsoft", "Edge", "Application"), "msedge.exe", ("ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"))
+
+
+# Browser tried for each choice of the "app_browser" setting, in order; then the default browser tab.
+_ORDER = {"auto": ("brave", "edge"), "brave": ("brave", "edge"), "edge": ("edge",), "default": ()}
+# Separate profiles: no extensions, history or sync of the user's own browser profile.
+_PROFILES = {"brave": "browser-profile-brave", "edge": "browser-profile"}
+
+
+def available_browsers() -> dict[str, bool]:
+    return {"brave": brave_path() is not None, "edge": edge_path() is not None}
+
+
+def pick_browser(choice: str) -> tuple[str, str | None]:
+    """(name, executable) of the app-window browser for a setting value; ("default", None) = browser tab."""
+    finders = {"brave": brave_path, "edge": edge_path}
+    for name in _ORDER.get(choice, _ORDER["auto"]):
+        path = finders[name]()
+        if path:
+            return name, path
+    return "default", None
+
+
+def open_window(url: str, data_dir: Path, choice: str = "auto") -> str:
+    """Open the UI in a dedicated window without address bar and tabs (Brave or Edge, with a
+    profile of its own in the data folder), or in a tab of the default browser.
+    Returns the browser used: "brave", "edge" or "default"."""
     import webbrowser
 
-    edge = edge_path() if mode == "app" else None
-    if edge:
-        profile = Path(data_dir) / "browser-profile"
+    name, exe = pick_browser(choice)
+    if exe:
+        profile = Path(data_dir) / _PROFILES[name]
         try:
             subprocess.Popen(
-                [edge, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                [exe, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
                  "--window-size=1280,860"],
                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-            return
+            return name
         except OSError:
-            log.warning("Could not start Edge, using the default browser")
+            log.warning("Could not start %s, using the default browser", name)
     webbrowser.open(url)
+    return "default"

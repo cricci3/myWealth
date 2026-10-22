@@ -143,11 +143,11 @@ function mount(el) {
     <div class="card settings">
       <div class="setting">
         <div>
-          <div class="setting-name">Apri myWealth in</div>
-          <div class="setting-hint" id="edge-hint">Finestra dedicata (Microsoft Edge, senza barra degli indirizzi) o scheda del browser predefinito.</div>
+          <div class="setting-name">Browser della finestra app</div>
+          <div class="setting-hint" id="browser-hint">Finestra dedicata senza barra degli indirizzi (Brave, altrimenti Edge) o scheda del browser predefinito. Vale dalla prossima apertura.</div>
         </div>
-        <select class="input auto-w" data-setting-select="launch_mode" aria-label="Modalità di apertura">
-          <option value="app">Finestra app</option><option value="browser">Scheda del browser</option>
+        <select class="input auto-w" data-setting-select="app_browser" aria-label="Browser della finestra app">
+          <option value="auto">Automatico</option><option value="brave">Brave</option><option value="edge">Edge</option><option value="default">Browser predefinito (scheda)</option>
         </select>
       </div>
       <div class="setting">
@@ -231,6 +231,7 @@ function mount(el) {
     try {
       state.settings = await api("PUT", "/api/settings", { [sel.dataset.settingSelect]: sel.value });
       toast("Impostazione salvata");
+      if (sel.dataset.settingSelect === "app_browser") renderBrowserHint();
       if ("reload" in sel.dataset) setTimeout(() => location.reload(), 500);
     } catch (e) {
       sel.value = state.settings[sel.dataset.settingSelect];
@@ -311,11 +312,28 @@ const SHORTCUTS = [
   ["startup", "Avvia all'accesso a Windows", "Apre myWealth automaticamente quando accedi."],
 ];
 
+let browsers = null;
+
+const BROWSER_NAMES = { brave: "Brave", edge: "Microsoft Edge", default: "una scheda del browser predefinito" };
+
+/** Which browser opens the app window with the current setting, and a warning if the chosen one is missing. */
+function renderBrowserHint() {
+  const hint = $("#browser-hint", root);
+  if (!hint || !browsers) return;
+  const choice = state.settings.app_browser;
+  const order = { auto: ["brave", "edge"], brave: ["brave", "edge"], edge: ["edge"], default: [] }[choice] || [];
+  const used = order.find((b) => browsers[b]) || "default";
+  const missing = choice === "brave" || choice === "edge" ? (browsers[choice] ? "" : `${BROWSER_NAMES[choice]} non è installato: `) : "";
+  hint.textContent = `${missing}la finestra si apre con ${BROWSER_NAMES[used]}${used === "default" ? "" : ", senza barra degli indirizzi"}. Vale dalla prossima apertura.`;
+  hint.classList.toggle("warn-text", Boolean(missing));
+}
+
 async function renderShortcuts() {
   const box = $("[data-shortcuts]", root);
   let sys;
   try { sys = await api("GET", "/api/system"); } catch (e) { return; }
-  if (!sys.edge) $("#edge-hint", root).textContent = "Microsoft Edge non trovato: si usa sempre una scheda del browser predefinito.";
+  browsers = sys.browsers;
+  renderBrowserHint();
   if (!sys.shortcuts.supported || sys.demo) { box.innerHTML = ""; return; }
   box.innerHTML = SHORTCUTS.map(([k, name, hint]) => `
     <div class="setting">

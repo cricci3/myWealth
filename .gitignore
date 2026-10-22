@@ -234,3 +234,5 @@ backups/
 portfolio.json
 *.mywealth
 .claude/settings.local.json
+mywealth-*.txt
+mobile_key.json

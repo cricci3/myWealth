@@ -80,14 +80,47 @@ def test_open_window(monkeypatch, tmp_path):
     started, opened = [], []
     monkeypatch.setattr(launcher.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
     monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
+    monkeypatch.setattr(launcher, "brave_path", lambda: "C:/Brave/brave.exe")
     monkeypatch.setattr(launcher, "edge_path", lambda: r"C:\Edge\msedge.exe")
-    launcher.open_window("http://127.0.0.1:1/", tmp_path, "app")
-    assert started[0][0].endswith("msedge.exe") and "--app=http://127.0.0.1:1/" in started[0]
-    assert f"--user-data-dir={tmp_path / 'browser-profile'}" in started[0]
-    launcher.open_window("http://127.0.0.1:1/", tmp_path, "browser")
+    assert launcher.open_window("http://127.0.0.1:1/", tmp_path, "auto") == "brave"
+    assert started[0][0].endswith("brave.exe") and "--app=http://127.0.0.1:1/" in started[0]
+    assert f"--user-data-dir={tmp_path / 'browser-profile-brave'}" in started[0]
+    assert "--no-first-run" in started[0] and "--no-default-browser-check" in started[0]
+    assert launcher.open_window("http://127.0.0.1:1/", tmp_path, "edge") == "edge"
+    assert started[1][0].endswith("msedge.exe")
+    assert f"--user-data-dir={tmp_path / 'browser-profile'}" in started[1]
+    assert launcher.open_window("http://127.0.0.1:1/", tmp_path, "default") == "default"
     monkeypatch.setattr(launcher, "edge_path", lambda: None)
-    launcher.open_window("http://127.0.0.1:1/", tmp_path, "app")
-    assert opened == ["http://127.0.0.1:1/"] * 2
+    assert launcher.open_window("http://127.0.0.1:1/", tmp_path, "edge") == "default"
+    assert len(started) == 2 and opened == ["http://127.0.0.1:1/"] * 2
+
+
+@pytest.mark.parametrize("choice, brave, edge, expected", [
+    ("auto", True, True, "brave"), ("auto", False, True, "edge"), ("auto", False, False, "default"),
+    ("brave", False, True, "edge"), ("edge", True, False, "default"), ("default", True, True, "default"),
+])
+def test_pick_browser_order(monkeypatch, choice, brave, edge, expected):
+    monkeypatch.setattr(launcher, "brave_path", lambda: "brave.exe" if brave else None)
+    monkeypatch.setattr(launcher, "edge_path", lambda: "msedge.exe" if edge else None)
+    assert launcher.pick_browser(choice)[0] == expected
+
+
+def test_brave_found_in_per_user_install(monkeypatch, tmp_path):
+    exe = tmp_path / "local" / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    monkeypatch.setattr(launcher.sys, "platform", "win32")
+    for var in ("ProgramFiles", "ProgramFiles(x86)"):
+        monkeypatch.setenv(var, str(tmp_path / "none"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+    assert launcher.brave_path() == str(exe)
+
+
+def test_app_browser_setting_and_legacy_launch_mode(db):
+    assert settings.get(db, "app_browser") == "auto"
+    db.set_settings({"launch_mode": "browser"})  # stored by earlier versions
+    assert settings.get(db, "app_browser") == "default"
+    assert settings.update(db, {"app_browser": "brave"})["app_browser"] == "brave"
 
 
 def test_idle_watch_stops_server(db, isolated_data_dir):
@@ -127,11 +160,11 @@ def test_heartbeat_and_system_api(server):
     assert client.json("POST", "/api/heartbeat") == (200, {"ok": True})
     assert httpd.ctx.last_heartbeat > before
     status, info = client.json("GET", "/api/system")
-    assert status == 200 and "supported" in info["shortcuts"]
+    assert status == 200 and "supported" in info["shortcuts"] and set(info["browsers"]) == {"brave", "edge"}
     assert client.json("POST", "/api/shortcuts", {"kind": "evil"})[0] == 400
 
 
-@pytest.mark.parametrize("bad", [{"launch_mode": "kiosk"}, {"idle_minutes": -1}, {"port": 80}, {"port": "x"}])
+@pytest.mark.parametrize("bad", [{"app_browser": "kiosk"}, {"idle_minutes": -1}, {"port": 80}, {"port": "x"}])
 def test_launch_settings_validation(db, bad):
     with pytest.raises(settings.SettingsError):
         settings.update(db, bad)
