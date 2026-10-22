@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from datetime import date, timedelta
 
-from . import accounts, categories, transactions
+from . import accounts, categories, savings, transactions
 from .db import Database
 
 
@@ -36,9 +36,12 @@ def seed(db: Database, today: date | None = None) -> None:
     main = acc("Conto corrente", "Banca Demo", "EUR", "3200", "standard")
     chf = acc("Conto svizzero", "Banca Alpina", "CHF", "1500", "standard")
     usd = acc("Conto USD", "Bank of Demo", "USD", "1200", "standard")
-    savings = acc("Salvadanaio", "Banca Demo", "EUR", "5000", "savings")
+    savings_id = acc("Salvadanaio", "Banca Demo", "EUR", "5000", "savings")
     broker = acc("Broker", "Broker Demo", "EUR", "2000", "investment")
     broker_us = acc("Broker USA", "Demo Securities", "USD", "1000", "investment")
+
+    savings.add_rate(db, savings_id, {"annual_rate": "2.5", "valid_from": start.isoformat()})
+    savings.add_rate(db, savings_id, {"annual_rate": "2", "valid_from": (start + timedelta(days=200)).isoformat()})
 
     cats = {(c["name"], c["nature"]): c["id"] for c in categories.list_categories(db)}
 
@@ -82,7 +85,7 @@ def seed(db: Database, today: date | None = None) -> None:
                 category_id=cat("Svago"), description=rng.choice(["Cinema", "Concerto", "Libri", "Sport"]))
         add("expense", day(rng.randint(1, 28)), account_id=chf, amount=money_str(rng.uniform(40, 160)),
             category_id=cat("Spesa alimentare"), description="Coop")
-        add("transfer", day(28), from_account_id=main, to_account_id=savings, amount="300",
+        add("transfer", day(28), from_account_id=main, to_account_id=savings_id, amount="300",
             description="Risparmio mensile")
         add("transfer", day(5), from_account_id=main, to_account_id=broker, amount="400",
             description="Piano di accumulo")

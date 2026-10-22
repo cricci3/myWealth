@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, categories, fx, money, settings, transactions
+from . import __version__, accounts, categories, fx, money, savings, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -191,3 +191,28 @@ def fx_add_manual(ctx, req: Request):
 def fx_delete_manual(ctx, req: Request):
     fx.delete_manual(ctx.db, money.check_currency(req.params["currency"]), str(req.params["day"]))
     return {"ok": True}
+
+
+# --------------------------------------------------------------------- savings
+
+
+@routes.get("savings/<id>")
+def savings_overview(ctx, req: Request):
+    return savings.overview(ctx.db, req.params["id"])
+
+
+@routes.post("savings/<id>/rates")
+def savings_add_rate(ctx, req: Request):
+    rate = savings.add_rate(ctx.db, req.params["id"], req.body())
+    return {"rate": rate, "generated": savings.generate(ctx.db, account_id=req.params["id"])}
+
+
+@routes.delete("savings/<id>/rates/<rate_id>")
+def savings_delete_rate(ctx, req: Request):
+    savings.delete_rate(ctx.db, req.params["id"], req.params["rate_id"])
+    return {"ok": True}
+
+
+@routes.post("savings/<id>/recalculate")
+def savings_recalculate(ctx, req: Request):
+    return {"generated": savings.recalculate(ctx.db, req.params["id"], req.body().get("from_month"))}

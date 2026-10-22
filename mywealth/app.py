@@ -122,11 +122,18 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
 
 def startup(ctx: AppContext) -> None:
     """Data jobs run at every start: demo data, exchange rates."""
-    from . import api, demo, settings
+    from . import api, demo, savings, settings
 
     if ctx.demo:
         demo.seed(ctx.db)
         api.refresh_fx(ctx, wait=True)  # synthetic rates, no network
+    try:
+        created = savings.generate(ctx.db)
+        if created:
+            log.info("Savings interest generated for %d month(s).", len(created))
+    except Exception:
+        log.exception("Savings interest generation failed")
+    if ctx.demo:
         return
     prefs = settings.load(ctx.db)
     if prefs["fx_auto_refresh"] and not prefs["offline_mode"]:

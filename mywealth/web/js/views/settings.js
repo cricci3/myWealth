@@ -50,6 +50,20 @@ function mount(el) {
     </div>
     <div class="card table-card gap-top"><div id="fx-table"></div></div>
 
+    <h2 class="section-title">Salvadanaio</h2>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name">Ritenuta fiscale sugli interessi</div>
+          <div class="setting-hint">Gli interessi mensili vengono accreditati al netto della ritenuta (in Italia 26%).</div>
+        </div>
+        <div class="row-actions">
+          <div class="input-unit small-input"><input class="input" id="tax-rate" inputmode="decimal" aria-label="Aliquota ritenuta"><span class="unit">%</span></div>
+          <label class="switch"><input type="checkbox" data-setting="interest_tax_enabled" aria-label="Applica la ritenuta"><span></span></label>
+        </div>
+      </div>
+    </div>
+
     <div class="section-head">
       <h2 class="section-title">Tipi di conto</h2>
       <button class="btn btn-sm" type="button" id="btn-new-type">${ICON.plus}Nuovo tipo</button>
@@ -79,6 +93,17 @@ function mount(el) {
       changed("fx");
     } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
   });
+  $("#tax-rate", el).addEventListener("change", async (ev) => {
+    const input = ev.currentTarget;
+    try {
+      state.settings = await api("PUT", "/api/settings", { interest_tax_rate: input.value });
+      input.value = state.settings.interest_tax_rate.replace(".", ",");
+      toast("Aliquota salvata: vale per i prossimi mesi calcolati");
+    } catch (e) {
+      input.value = String(state.settings.interest_tax_rate).replace(".", ",");
+      toast(e.message, true);
+    }
+  });
   $$("[data-setting]", el).forEach((input) => input.addEventListener("change", async () => {
     try {
       state.settings = await api("PUT", "/api/settings", { [input.dataset.setting]: input.checked });
@@ -98,6 +123,7 @@ async function show() {
     b.setAttribute("aria-checked", String(on));
   });
   $$("[data-setting]", root).forEach((input) => { input.checked = !!state.settings[input.dataset.setting]; });
+  $("#tax-rate", root).value = String(state.settings.interest_tax_rate ?? "").replace(".", ",");
   await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
   await renderFx();
   renderTypes();

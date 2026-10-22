@@ -243,14 +243,15 @@ def add_manual(db: Database, data: dict) -> dict:
         raise ValidationError("Il tasso deve essere maggiore di zero.")
     if data.get("direction") == "per_eur":  # entered as "1 EUR = x CUR"
         rate = (Decimal(1) / rate).quantize(Decimal("1e-10")).normalize()
+    rate_text = format(rate, "f")
     with db.transaction() as conn:
         conn.execute(
             "INSERT INTO fx_rates (currency, date, rate, source) VALUES (?, ?, ?, 'manual')"
             " ON CONFLICT(currency, date) DO UPDATE SET rate = excluded.rate, source = 'manual'",
-            (currency, day.isoformat(), str(rate)),
+            (currency, day.isoformat(), rate_text),
         )
         resnapshot(conn)
-    return {"currency": currency, "date": day.isoformat(), "rate": str(rate), "source": "manual"}
+    return {"currency": currency, "date": day.isoformat(), "rate": rate_text, "source": "manual"}
 
 
 def delete_manual(db: Database, currency: str, day: str) -> None:

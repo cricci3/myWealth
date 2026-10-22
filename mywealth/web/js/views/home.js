@@ -4,6 +4,7 @@ import {
   openDialog, options, rateNote, state, toast, toEur, todayISO,
 } from "../core.js";
 import { manualRateDialog } from "./settings.js";
+import { savingsDialog } from "./savings.js";
 
 let root;
 
@@ -84,13 +85,14 @@ function renderTable() {
 
 function row(a) {
   return `<tr class="${a.archived ? "muted-row" : ""}">
-    <td><div class="cell-main">${esc(a.name)}</div>${a.archived ? '<span class="pill">archiviato</span>' : ""}</td>
+    <td><div class="cell-main">${esc(a.name)}</div>${a.archived ? '<span class="pill">archiviato</span>' : ""}${a.behavior === "savings" && a.annual_rate != null ? `<span class="pill rate">${num(a.annual_rate, 4)}%</span>` : ""}</td>
     <td class="hide-sm">${esc(a.bank) || "—"}</td>
     <td>${esc(a.currency)}</td>
     <td class="hide-sm">${esc(a.type_name)}</td>
     <td class="hide-md">${dateFmt(a.opened_on)}</td>
     <td class="num"><span class="${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}</td>
     <td class="actions">
+      ${a.behavior === "savings" ? `<button class="icon-btn" title="Rendimento e interessi" data-act="savings" data-id="${a.id}">${ICON.percent}</button>` : ""}
       <button class="icon-btn" title="Modifica" data-act="edit" data-id="${a.id}">${ICON.edit}</button>
       <button class="icon-btn" title="${a.archived ? "Ripristina" : "Archivia"}" data-act="archive" data-id="${a.id}">${a.archived ? ICON.unarchive : ICON.archive}</button>
       ${a.movements ? "" : `<button class="icon-btn danger" title="Elimina" data-act="delete" data-id="${a.id}">${ICON.trash}</button>`}
@@ -111,6 +113,7 @@ async function act(what, id) {
   if (!a) return;
   try {
     if (what === "edit") return accountDialog(a);
+    if (what === "savings") return savingsDialog(a);
     if (what === "archive") {
       if (!a.archived && !(await confirmDialog("Archivia conto",
         `“${esc(a.name)}” sparirà dalle selezioni ma resterà nello storico e nei report. Potrai ripristinarlo in ogni momento.`,
@@ -149,6 +152,9 @@ export function accountDialog(a = null) {
           <label class="field span2">Saldo iniziale alla data di apertura
             <div class="input-unit"><input name="opening_balance" inputmode="decimal" value="${a ? inputNum(a.opening_balance) : ""}" placeholder="0,00" autocomplete="off"><span class="unit" data-unit></span></div>
           </label>
+          ${a ? "" : `<label class="field span2" data-rate-field hidden>Rendimento annuo % (facoltativo)
+            <input name="annual_rate" inputmode="decimal" autocomplete="off" placeholder="es. 2,5">
+            <span class="hint">Gli interessi maturano dalla data di apertura. Potrai cambiare il tasso in seguito.</span></label>`}
           <label class="field span2">Note<textarea name="notes" rows="2" maxlength="1000">${esc(a?.notes)}</textarea></label>
         </div>`;
       const cur = $('[name="currency"]', body);
@@ -156,10 +162,27 @@ export function accountDialog(a = null) {
       const sync = () => { unit.textContent = cur.value; };
       cur.addEventListener("change", sync);
       sync();
+      const typeSel = $('[name="type_id"]', body), rateField = $("[data-rate-field]", body);
+      const syncType = () => {
+        if (!rateField) return;
+        const t = state.types.find((x) => x.id === Number(typeSel.value));
+        rateField.hidden = !t || t.behavior !== "savings";
+      };
+      typeSel.addEventListener("change", syncType);
+      syncType();
     },
     async onSubmit(form) {
       const data = formData(form);
+      const rate = data.annual_rate;
+      delete data.annual_rate;
       const saved = a ? await api("PUT", `/api/accounts/${a.id}`, data) : await api("POST", "/api/accounts", data);
+      if (!a && rate && saved.behavior === "savings") {
+        try {
+          await api("POST", `/api/savings/${saved.id}/rates`, { annual_rate: rate, valid_from: saved.opened_on });
+        } catch (e) {
+          toast(`Conto creato, ma il rendimento non è stato salvato: ${e.message}`, true);
+        }
+      }
       await loadAccounts();
       changed("accounts");
       toast(a ? "Conto aggiornato" : "Conto creato");

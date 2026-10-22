@@ -9,6 +9,8 @@ DEFAULTS: dict = {
     "theme": "system",  # system | light | dark
     "offline_mode": False,  # no call to Yahoo Finance at all
     "fx_auto_refresh": True,  # download exchange rates at startup
+    "interest_tax_enabled": False,  # withholding tax on savings interest
+    "interest_tax_rate": "26",  # percent, decimal text
 }
 
 _CHOICES: dict[str, tuple] = {
@@ -34,6 +36,13 @@ def get(db: Database, key: str):
 
 def _check(key: str, value):
     default = DEFAULTS[key]
+    if key == "interest_tax_rate":
+        from .money import parse_decimal
+
+        rate = parse_decimal(value, "ritenuta", max_places=2)
+        if rate < 0 or rate > 100:
+            raise SettingsError("La ritenuta deve essere tra 0 e 100%.")
+        return format(rate.normalize(), "f")
     if key in _CHOICES:
         if value not in _CHOICES[key]:
             raise SettingsError(f"Valore non valido per '{key}'.")

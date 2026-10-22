@@ -138,6 +138,32 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        4,
+        """
+        -- Annual yield of savings accounts, with history: a new rate applies from
+        -- `valid_from` on and never rewrites the past.
+        CREATE TABLE savings_rates (
+            id          INTEGER PRIMARY KEY,
+            account_id  INTEGER NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+            annual_rate TEXT NOT NULL,  -- percent, decimal text ("2.5")
+            valid_from  TEXT NOT NULL,  -- YYYY-MM-DD
+            UNIQUE (account_id, valid_from)
+        );
+
+        -- Months whose interest has been computed: makes generation idempotent, and an
+        -- interest operation deleted by the user is not generated again.
+        CREATE TABLE interest_runs (
+            account_id     INTEGER NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+            month          TEXT NOT NULL,  -- YYYY-MM
+            transaction_id INTEGER REFERENCES transactions (id) ON DELETE SET NULL,
+            gross          INTEGER NOT NULL,  -- minor units, before withholding tax
+            tax            INTEGER NOT NULL,
+            created_at     TEXT NOT NULL,
+            PRIMARY KEY (account_id, month)
+        );
+        """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]

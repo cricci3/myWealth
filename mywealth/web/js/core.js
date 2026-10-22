@@ -232,6 +232,7 @@ export const ICON = {
   more: svg('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'),
   warn: svg('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/>'),
   folder: svg('<path d="M3 6h6l2 2h10v11H3z"/>'),
+  percent: svg('<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'),
 };
 
 // --------------------------------------------------------------- app state --

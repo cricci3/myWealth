@@ -147,6 +147,7 @@ svg { display: block; }
 .settings { padding: 4px 20px; }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; flex-wrap: wrap; }
 .setting + .setting { border-top: 1px solid var(--line); }
+.setting > :first-child { flex: 1 1 220px; min-width: 0; }
 .setting-name { font-weight: 500; }
 .setting-hint { color: var(--muted); font-size: 12.5px; }
 
@@ -289,6 +290,17 @@ svg { display: block; }
 .switch input:checked + span { background: var(--pos); }
 .switch input:checked + span::after { transform: translateX(18px); }
 .switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ----------------------------------------------------------------- savings */
+.pill.rate { color: var(--pos); background: var(--pos-soft); border-color: transparent; }
+.sub-title { margin: 4px 0 10px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.inline-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0 12px; }
+.inline-form .field { margin-bottom: 0; flex: 1 1 130px; }
+.inline-form .btn { height: 38px; }
+.table.compact th, .table.compact td { padding: 7px 10px; }
+.savings-grid { gap: 0 24px; align-items: start; }
+.small-input { width: 92px; }
+.small-input .input { padding-right: 28px; text-align: right; }
 
 /* -------------------------------------------------------------- responsive */
 /* Narrow window: the sidebar collapses to an icon rail. */

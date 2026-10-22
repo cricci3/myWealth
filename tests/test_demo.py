@@ -17,3 +17,10 @@ def test_demo_has_a_year_of_operations_and_no_negative_balance(db):
     demo.seed(db)
     assert transactions.list_transactions(db)["total"] > 200
     assert all(a["balance_minor"] >= 0 for a in accounts.list_accounts(db))
+
+
+def test_demo_savings_interest(db):
+    from mywealth import savings
+
+    demo.seed(db)
+    assert len(savings.generate(db)) >= 11

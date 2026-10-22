@@ -173,12 +173,18 @@ def _account_dict(r: sqlite3.Row, bal: int, movements: int) -> dict:
 
 
 def list_accounts(db: Database, include_archived: bool = True) -> list[dict]:
+    from .savings import current_rates
+
     with db.connect() as conn:
         where = "" if include_archived else "WHERE a.archived = 0"
         rows = conn.execute(f"{_ACCOUNT_SQL} {where} ORDER BY a.archived, a.name COLLATE NOCASE").fetchall()
         bals = balances(conn)
         counts = _movement_counts(conn)
-    return [_account_dict(r, bals.get(r["id"], 0), counts.get(r["id"], 0)) for r in rows]
+        rates = current_rates(conn)
+    out = [_account_dict(r, bals.get(r["id"], 0), counts.get(r["id"], 0)) for r in rows]
+    for a in out:
+        a["annual_rate"] = rates.get(a["id"]) if a["behavior"] == "savings" else None
+    return out
 
 
 def _movement_counts(conn: sqlite3.Connection) -> dict[int, int]:
