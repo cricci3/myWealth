@@ -20,6 +20,18 @@ def isolated_data_dir(tmp_path, monkeypatch) -> Path:
     return path
 
 
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """Tests never reach Yahoo: the real provider fails as if offline."""
+    from mywealth import market
+
+    def blocked(*args, **kwargs):
+        raise market.MarketError("network disabled in tests")
+
+    for name in ("history", "search", "meta"):
+        monkeypatch.setattr(market.YahooProvider, name, blocked)
+
+
 @pytest.fixture
 def db(isolated_data_dir) -> Database:
     database = Database(isolated_data_dir / "test.db")

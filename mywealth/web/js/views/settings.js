@@ -1,7 +1,7 @@
 /* Settings: theme, account types, information. */
 import {
-  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, esc, formData, ICON, loadAccounts, loadCategories, openDialog,
-  options, state, toast,
+  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, dateFmt, esc, formData, ICON, loadAccounts, loadCategories,
+  loadRates, num, openDialog, options, state, toast, todayISO,
 } from "../core.js";
 
 const NATURES = { expense: "Spese", income: "Entrate", transfer: "Trasferimenti" };
@@ -26,6 +26,31 @@ function mount(el) {
     </div>
 
     <div class="section-head">
+      <h2 class="section-title">Cambi valuta</h2>
+      <div class="row-actions">
+        <button class="btn btn-sm" type="button" id="btn-fx-manual">${ICON.plus}Tasso manuale</button>
+        <button class="btn btn-sm" type="button" id="btn-fx-refresh">${ICON.refresh}Aggiorna ora</button>
+      </div>
+    </div>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name">Modalità offline</div>
+          <div class="setting-hint">Nessuna connessione a Yahoo Finance: si usano gli ultimi tassi e prezzi salvati.</div>
+        </div>
+        <label class="switch"><input type="checkbox" data-setting="offline_mode" aria-label="Modalità offline"><span></span></label>
+      </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Aggiorna i cambi all'avvio</div>
+          <div class="setting-hint">Al massimo una richiesta al giorno per valuta; Yahoo riceve solo le coppie valutarie e le date.</div>
+        </div>
+        <label class="switch"><input type="checkbox" data-setting="fx_auto_refresh" aria-label="Aggiorna i cambi all'avvio"><span></span></label>
+      </div>
+    </div>
+    <div class="card table-card gap-top"><div id="fx-table"></div></div>
+
+    <div class="section-head">
       <h2 class="section-title">Tipi di conto</h2>
       <button class="btn btn-sm" type="button" id="btn-new-type">${ICON.plus}Nuovo tipo</button>
     </div>
@@ -43,6 +68,26 @@ function mount(el) {
     b.addEventListener("click", () => window.dispatchEvent(new CustomEvent("mw-save-theme", { detail: b.dataset.themeChoice }))));
   $("#btn-new-type", el).addEventListener("click", () => typeDialog());
   $("#btn-new-cat", el).addEventListener("click", () => categoryDialog());
+  $("#btn-fx-manual", el).addEventListener("click", () => manualRateDialog());
+  $("#btn-fx-refresh", el).addEventListener("click", async (ev) => {
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    try {
+      const res = await api("POST", "/api/fx/refresh");
+      const errs = Object.entries((res.last && res.last.result && res.last.result.errors) || {});
+      toast(errs.length ? `${errs[0][0]}: ${errs[0][1]}` : "Cambi aggiornati", errs.length > 0);
+      changed("fx");
+    } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+  });
+  $$("[data-setting]", el).forEach((input) => input.addEventListener("change", async () => {
+    try {
+      state.settings = await api("PUT", "/api/settings", { [input.dataset.setting]: input.checked });
+      changed("settings");
+    } catch (e) {
+      input.checked = !input.checked;
+      toast(e.message, true);
+    }
+  }));
 }
 
 async function show() {
@@ -52,10 +97,81 @@ async function show() {
     b.classList.toggle("on", on);
     b.setAttribute("aria-checked", String(on));
   });
-  await Promise.all([loadAccounts(), loadCategories()]);
+  $$("[data-setting]", root).forEach((input) => { input.checked = !!state.settings[input.dataset.setting]; });
+  await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
+  await renderFx();
   renderTypes();
   renderCategories();
   renderInfo();
+}
+
+const SOURCES = { yahoo: "Yahoo", manual: "Manuale", demo: "Demo" };
+
+async function renderFx() {
+  const box = $("#fx-table", root);
+  $("#btn-fx-refresh", root).disabled = !!state.settings.offline_mode;
+  const rates = Object.entries(state.fx.rates);
+  const manual = await api("GET", "/api/fx/rates");
+  if (!rates.length && !manual.length) {
+    box.innerHTML = `<div class="empty-row">Tutti i conti sono in EUR: nessun cambio necessario.</div>`;
+    return;
+  }
+  const statusOf = (r) => r.error
+    ? `<span class="neg small" title="${esc(r.error)}">errore ultimo aggiornamento</span>`
+    : r.stale ? '<span class="muted small">non aggiornato</span>' : '<span class="pos small">aggiornato</span>';
+  box.innerHTML = `
+    <table class="table">
+      <thead><tr><th>Valuta</th><th class="num">1 unità in EUR</th><th>Data</th><th class="hide-sm">Fonte</th><th class="hide-md">Stato</th></tr></thead>
+      <tbody>${rates.map(([c, r]) => `
+        <tr><td><div class="cell-main">${c}</div></td>
+          <td class="num">${r.rate ? num(r.rate, 6) : `<button class="link" data-manual="${c}">inserisci</button>`}</td>
+          <td>${r.date ? dateFmt(r.date) : "—"}</td>
+          <td class="hide-sm">${SOURCES[r.source] || "—"}</td>
+          <td class="hide-md">${statusOf(r)}</td>
+        </tr>`).join("")}</tbody>
+    </table>
+    ${manual.length ? `
+    <table class="table manual-table">
+      <thead><tr><th>Tassi manuali</th><th class="num">1 unità in EUR</th><th>Data</th><th class="actions"></th></tr></thead>
+      <tbody>${manual.map((r) => `
+        <tr><td>${r.currency}</td><td class="num">${num(r.rate, 6)}</td><td>${dateFmt(r.date)}</td>
+          <td class="actions"><button class="icon-btn danger" title="Elimina" data-del-rate="${r.currency}/${r.date}">${ICON.trash}</button></td></tr>`).join("")}
+      </tbody>
+    </table>` : ""}`;
+  $$("[data-manual]", box).forEach((b) => b.addEventListener("click", () => manualRateDialog(b.dataset.manual)));
+  $$("[data-del-rate]", box).forEach((b) => b.addEventListener("click", async () => {
+    try {
+      await api("DELETE", `/api/fx/rates/${b.dataset.delRate}`);
+      changed("fx");
+    } catch (e) { toast(e.message, true); }
+  }));
+}
+
+/** Enter an exchange rate by hand (no connection, or a currency Yahoo doesn't know). */
+export function manualRateDialog(currency = null) {
+  const curs = state.currencies.filter((c) => c.code !== "EUR");
+  const initial = currency || Object.keys(state.fx.rates)[0] || "USD";
+  return openDialog({
+    title: "Tasso di cambio manuale",
+    render(body) {
+      body.innerHTML = `
+        <div class="grid2">
+          <label class="field">Valuta<select name="currency">${options(curs, initial, (c) => `${c.code} · ${c.name}`, (c) => c.code)}</select></label>
+          <label class="field">Data<input type="date" name="date" max="${todayISO()}" value="${todayISO()}"></label>
+          <label class="field">Espresso come<select name="direction">
+            <option value="to_eur">1 valuta = x EUR</option><option value="per_eur">1 EUR = x valuta</option></select></label>
+          <label class="field">Tasso<input name="rate" inputmode="decimal" autocomplete="off" placeholder="es. 1,0650"></label>
+        </div>
+        <p class="dlg-note">I tassi manuali hanno la precedenza su Yahoo per lo stesso giorno. Le operazioni senza controvalore EUR lo ricevono subito.</p>`;
+    },
+    async onSubmit(form) {
+      const saved = await api("POST", "/api/fx/rates", formData(form));
+      await loadRates();
+      changed("fx");
+      toast("Tasso salvato");
+      return saved;
+    },
+  });
 }
 
 function renderTypes() {

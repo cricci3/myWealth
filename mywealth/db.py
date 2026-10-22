@@ -117,6 +117,27 @@ MIGRATIONS: list[tuple[int, str]] = [
         CREATE INDEX transactions_linked ON transactions (linked_id);
         """,
     ),
+    (
+        3,
+        """
+        -- EUR per unit of `currency` on `date` (decimal text)
+        CREATE TABLE fx_rates (
+            currency TEXT NOT NULL,
+            date     TEXT NOT NULL,
+            rate     TEXT NOT NULL,
+            source   TEXT NOT NULL CHECK (source IN ('yahoo', 'manual', 'demo')),
+            PRIMARY KEY (currency, date)
+        );
+
+        -- Last download per Yahoo symbol (at most one request per symbol per day)
+        CREATE TABLE market_fetch (
+            symbol     TEXT PRIMARY KEY,
+            fetched_on TEXT NOT NULL,  -- YYYY-MM-DD of the last successful download
+            start      TEXT NOT NULL,  -- oldest date covered
+            error      TEXT            -- last error, NULL if the last attempt succeeded
+        );
+        """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]

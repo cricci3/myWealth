@@ -95,11 +95,8 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
         except SchemaTooNewError as e:
             log.error("%s", e)
             return 1
-        if args.demo:
-            from . import demo
-
-            demo.seed(db)
         ctx = AppContext(db=db, data_dir=data_dir, demo=args.demo)
+        startup(ctx)
         httpd = make_server(ctx, args.port)
         lock.set_port(httpd.port)
         url = f"http://127.0.0.1:{httpd.port}/"
@@ -121,6 +118,19 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
         return 0
     finally:
         lock.release()
+
+
+def startup(ctx: AppContext) -> None:
+    """Data jobs run at every start: demo data, exchange rates."""
+    from . import api, demo, settings
+
+    if ctx.demo:
+        demo.seed(ctx.db)
+        api.refresh_fx(ctx, wait=True)  # synthetic rates, no network
+        return
+    prefs = settings.load(ctx.db)
+    if prefs["fx_auto_refresh"] and not prefs["offline_mode"]:
+        api.refresh_fx(ctx)  # background: the UI is usable while rates download
 
 
 def main() -> int:

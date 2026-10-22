@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlparse
 
-from .db import Database
+from . import market, settings
+from .db import Database, now_iso
 from .errors import AppError
 from .instance import APP_ID, PING_PATH
 from .router import Request, Response
@@ -48,10 +49,48 @@ class AppContext:
     demo: bool = False
     token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     server: Any = field(default=None, repr=False)
+    market: market.Provider | None = None  # None: Yahoo (DemoProvider in demo mode)
+    jobs: dict = field(default_factory=dict)  # background job name -> last state
+    _job_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.market is None:
+            self.market = market.DemoProvider() if self.demo else market.YahooProvider()
 
     def request_shutdown(self) -> None:
         if self.server is not None:
             self.server.request_shutdown()
+
+    def provider(self) -> market.Provider:
+        """The market data source, honouring the offline-mode setting."""
+        if settings.get(self.db, "offline_mode"):
+            return market.OfflineProvider()
+        return self.market
+
+    def run_job(self, name: str, func, wait: bool = False) -> dict:
+        """Run `func()` once at a time per name (in a thread unless `wait`); its result
+        or error is kept in self.jobs[name]."""
+        with self._job_lock:
+            job = self.jobs.setdefault(name, {"running": False})
+            if job["running"]:
+                return dict(job)
+            job["running"] = True
+
+        def work() -> None:
+            try:
+                result, error = func(), None
+            except Exception as e:  # reported to the UI, never fatal
+                log.exception("Background job %s failed", name)
+                result, error = None, str(e)
+            with self._job_lock:
+                job.update(running=False, result=result, error=error, at=now_iso())
+
+        if wait:
+            work()
+        else:
+            threading.Thread(target=work, name=f"job-{name}", daemon=True).start()
+        with self._job_lock:
+            return dict(job)
 
 
 class ApiError(Exception):

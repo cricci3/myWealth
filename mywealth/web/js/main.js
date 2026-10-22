@@ -1,5 +1,5 @@
 /* myWealth — UI entry point: router, theme, exit. Vanilla JS modules, no external dependencies. */
-import { $, $$, api, onChange, state, store, toast, LOCALE, loadAccounts } from "./core.js";
+import { $, $$, api, changed, onChange, state, store, toast, LOCALE, loadAccounts, loadRates } from "./core.js";
 import home from "./views/home.js";
 import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
@@ -121,7 +121,7 @@ async function init() {
 
   try {
     const [settings, status, currencies] = await Promise.all([
-      api("GET", "/api/settings"), api("GET", "/api/status"), api("GET", "/api/currencies"), loadAccounts(),
+      api("GET", "/api/settings"), api("GET", "/api/status"), api("GET", "/api/currencies"), loadAccounts(), loadRates(),
     ]);
     state.settings = settings;
     state.status = status;
@@ -133,6 +133,16 @@ async function init() {
   }
   window.addEventListener("hashchange", showView);
   showView();
+  watchFx();
+}
+
+// Rates download in the background at startup: refresh the views when it ends.
+async function watchFx() {
+  for (let i = 0; i < 60 && state.fx && state.fx.running; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try { await loadRates(); } catch (e) { return; }
+    if (!state.fx.running) changed("fx");
+  }
 }
 
 init();

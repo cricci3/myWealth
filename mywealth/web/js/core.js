@@ -275,3 +275,30 @@ export function eurHint(el, value, cur, _date) {
   if (!r || !r.rate) { el.textContent = "Controvalore EUR non disponibile"; return; }
   el.textContent = `= ${money(value * Number(r.rate), "EUR")}`;
 }
+
+export async function loadRates() {
+  const res = await api("GET", "/api/fx");
+  state.fx = res;
+  state.rates = Object.fromEntries(Object.entries(res.rates).filter(([, r]) => r.rate));
+  return res;
+}
+
+/** EUR value of an amount in `cur` with the latest rate, or null if unknown. */
+export function toEur(value, cur) {
+  if (value == null || value === "") return null;
+  if (cur === "EUR") return Number(value);
+  const r = state.rates[cur];
+  return r ? Number(value) * Number(r.rate) : null;
+}
+
+/** Short note about the rate used for `cur`: "tasso del 20/10/2026", "offline", "manuale". */
+export function rateNote(cur) {
+  if (cur === "EUR") return "";
+  const r = (state.fx && state.fx.rates[cur]) || null;
+  if (!r || !r.rate) return "tasso non disponibile";
+  const parts = [];
+  if (state.fx.offline) parts.push("offline");
+  if (r.stale || state.fx.offline || r.error) parts.push(`tasso del ${dateFmt(r.date)}`);
+  if (r.source === "manual") parts.push("manuale");
+  return parts.join(" · ");
+}

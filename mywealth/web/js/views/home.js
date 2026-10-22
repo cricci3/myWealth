@@ -1,8 +1,9 @@
 /* Home: accounts table (M1). */
 import {
-  $, $$, api, changed, confirmDialog, dateFmt, esc, formData, ICON, inputNum, loadAccounts, money, openDialog,
-  options, state, toast, todayISO,
+  $, $$, api, changed, confirmDialog, dateFmt, esc, formData, ICON, inputNum, loadAccounts, loadRates, money, num,
+  openDialog, options, rateNote, state, toast, toEur, todayISO,
 } from "../core.js";
+import { manualRateDialog } from "./settings.js";
 
 let root;
 
@@ -16,14 +17,49 @@ function mount(el) {
         <button class="btn btn-primary" id="btn-new-account" type="button">${ICON.plus}Nuovo conto</button>
       </div>
     </div>
-    <div class="card table-card"><div id="accounts-table"></div></div>`;
+    <div class="card table-card"><div id="accounts-table"></div></div>
+    <div class="fx-bar" id="fx-bar"></div>`;
   $("#btn-new-account", el).addEventListener("click", () => accountDialog());
   $("#show-archived", el).addEventListener("change", renderTable);
 }
 
 async function show() {
-  await loadAccounts();
+  await Promise.all([loadAccounts(), loadRates()]);
   renderTable();
+  renderFx();
+}
+
+function renderFx() {
+  const box = $("#fx-bar", root);
+  const fx = state.fx;
+  const curs = Object.keys(fx.rates);
+  if (!curs.length) { box.innerHTML = ""; return; }
+  const items = curs.map((c) => {
+    const r = fx.rates[c];
+    if (!r.rate) return `<span class="fx-item warn">${c}: <button class="link" data-manual="${c}">inserisci tasso</button></span>`;
+    const title = `1 ${c} = ${num(r.rate, 6)} EUR · ${r.source === "manual" ? "manuale" : "Yahoo"} del ${dateFmt(r.date)}`;
+    return `<span class="fx-item ${r.stale ? "warn" : ""}" title="${esc(title)}">${c} ${num(r.rate, 4)}${r.stale ? ` <span class="muted">(${dateFmt(r.date)})</span>` : ""}</span>`;
+  });
+  const status = fx.offline ? '<span class="pill warn">offline</span>' : fx.running ? '<span class="pill">aggiornamento…</span>' : "";
+  box.innerHTML = `<span class="muted">Cambi in EUR</span> ${items.join("")} ${status}
+    <button class="icon-btn" id="fx-refresh" title="Aggiorna i cambi" ${fx.offline ? "disabled" : ""}>${ICON.refresh}</button>`;
+  $$("[data-manual]", box).forEach((b) => b.addEventListener("click", () => manualRateDialog(b.dataset.manual)));
+  const btn = $("#fx-refresh", box);
+  btn.addEventListener("click", async () => {
+    btn.classList.add("spinning");
+    btn.disabled = true;
+    try {
+      const res = await api("POST", "/api/fx/refresh");
+      const errs = Object.values((res.last && res.last.result && res.last.result.errors) || {});
+      if (errs.length) toast(`Cambi non aggiornati: ${errs[0]}`, true);
+      else toast("Cambi aggiornati");
+      changed("fx");
+    } catch (e) {
+      toast(e.message, true);
+      btn.classList.remove("spinning");
+      btn.disabled = false;
+    }
+  });
 }
 
 function renderTable() {
@@ -43,6 +79,7 @@ function renderTable() {
       <tbody>${list.map(row).join("")}</tbody>
     </table>`;
   $$("[data-act]", box).forEach((b) => b.addEventListener("click", () => act(b.dataset.act, Number(b.dataset.id))));
+  $$("[data-manual]", box).forEach((b) => b.addEventListener("click", () => manualRateDialog(b.dataset.manual)));
 }
 
 function row(a) {
@@ -52,13 +89,21 @@ function row(a) {
     <td>${esc(a.currency)}</td>
     <td class="hide-sm">${esc(a.type_name)}</td>
     <td class="hide-md">${dateFmt(a.opened_on)}</td>
-    <td class="num ${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</td>
+    <td class="num"><span class="${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}</td>
     <td class="actions">
       <button class="icon-btn" title="Modifica" data-act="edit" data-id="${a.id}">${ICON.edit}</button>
       <button class="icon-btn" title="${a.archived ? "Ripristina" : "Archivia"}" data-act="archive" data-id="${a.id}">${a.archived ? ICON.unarchive : ICON.archive}</button>
       ${a.movements ? "" : `<button class="icon-btn danger" title="Elimina" data-act="delete" data-id="${a.id}">${ICON.trash}</button>`}
     </td>
   </tr>`;
+}
+
+function eurLine(a) {
+  if (a.currency === "EUR") return "";
+  const eur = toEur(a.balance, a.currency);
+  const note = rateNote(a.currency);
+  if (eur == null) return `<div class="cell-sub"><button class="link" data-manual="${a.currency}">tasso mancante</button></div>`;
+  return `<div class="cell-sub">= ${money(eur, "EUR")}${note ? ` · ${esc(note)}` : ""}</div>`;
 }
 
 async function act(what, id) {

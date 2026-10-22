@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, categories, money, settings, transactions
+from . import __version__, accounts, categories, fx, money, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -149,4 +149,45 @@ def update_transaction(ctx, req: Request):
 @routes.delete("transactions/<id>")
 def delete_transaction(ctx, req: Request):
     transactions.delete(ctx.db, req.params["id"])
+    return {"ok": True}
+
+
+# -------------------------------------------------------------------------- fx
+
+
+def refresh_fx(ctx, force: bool = False, wait: bool = False) -> dict:
+    return ctx.run_job("fx", lambda: fx.refresh(ctx.db, ctx.provider(), force=force), wait=wait)
+
+
+@routes.get("fx")
+def fx_status(ctx, req: Request):
+    job = ctx.jobs.get("fx", {})
+    return {
+        "rates": fx.status(ctx.db),
+        "offline": settings.get(ctx.db, "offline_mode"),
+        "running": job.get("running", False),
+        "last": {k: job.get(k) for k in ("result", "error", "at")} if job else None,
+    }
+
+
+@routes.post("fx/refresh")
+def fx_refresh(ctx, req: Request):
+    refresh_fx(ctx, force=True, wait=True)
+    return fx_status(ctx, req)
+
+
+@routes.get("fx/rates")
+def fx_rates(ctx, req: Request):
+    cur = req.q("currency")
+    return fx.rates_list(ctx.db, money.check_currency(cur) if cur else None, limit=req.q_int("limit", 60))
+
+
+@routes.post("fx/rates")
+def fx_add_manual(ctx, req: Request):
+    return fx.add_manual(ctx.db, req.body())
+
+
+@routes.delete("fx/rates/<currency:str>/<day:str>")
+def fx_delete_manual(ctx, req: Request):
+    fx.delete_manual(ctx.db, money.check_currency(req.params["currency"]), str(req.params["day"]))
     return {"ok": True}

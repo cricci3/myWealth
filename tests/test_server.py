@@ -80,12 +80,16 @@ def test_status(server, isolated_data_dir):
 
 def test_settings_roundtrip(server):
     _, client = server
-    assert client.json("GET", "/api/settings") == (200, {"theme": "system"})
-    assert client.json("PUT", "/api/settings", {"theme": "dark"}) == (200, {"theme": "dark"})
-    assert client.json("GET", "/api/settings") == (200, {"theme": "dark"})
+    from mywealth.settings import DEFAULTS
+
+    assert client.json("GET", "/api/settings") == (200, DEFAULTS)
+    assert client.json("PUT", "/api/settings", {"theme": "dark"}) == (200, {**DEFAULTS, "theme": "dark"})
+    assert client.json("GET", "/api/settings") == (200, {**DEFAULTS, "theme": "dark"})
 
 
-@pytest.mark.parametrize("body", [{"theme": "neon"}, {"nope": 1}, b"not json", b"[1, 2]"])
+@pytest.mark.parametrize(
+    "body", [{"theme": "neon"}, {"nope": 1}, {"offline_mode": "yes"}, b"not json", b"[1, 2]"]
+)
 def test_settings_bad_input(server, body):
     _, client = server
     status, data = client.json("PUT", "/api/settings", body)
