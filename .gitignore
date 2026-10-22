@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# myWealth — user data must never be committed
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+exports/
+backups/
+*.export.csv
+*.export.json
+portfolio.json
+*.mywealth
+.claude/settings.local.json

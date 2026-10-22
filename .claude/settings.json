@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(~/AppData/Roaming/myWealth/**)",
+      "Edit(~/AppData/Roaming/myWealth/**)",
+      "Read(~/.mywealth/**)",
+      "Edit(~/.mywealth/**)",
+      "Read(**/mywealth.db)",
+      "Read(**/mywealth.db-*)",
+      "Edit(**/mywealth.db)",
+      "Read(**/*.mywealth)",
+      "Edit(**/*.mywealth)",
+      "Read(**/*.sqlite)",
+      "Read(**/*.sqlite3)",
+      "Read(**/.env)",
+      "Bash(*AppData*myWealth*)",
+      "Bash(*APPDATA*)",
+      "Bash(*.mywealth*)",
+      "Bash(*mywealth.db*)",
+      "Bash(*MYWEALTH_DATA_DIR*)",
+      "PowerShell(*AppData*myWealth*)",
+      "PowerShell(*APPDATA*)",
+      "PowerShell(*.mywealth*)",
+      "PowerShell(*mywealth.db*)",
+      "PowerShell(*MYWEALTH_DATA_DIR*)",
+      "WebFetch(domain:127.0.0.1)",
+      "WebFetch(domain:localhost)"
+    ]
+  }
+}

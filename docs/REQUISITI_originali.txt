@@ -1,0 +1,30 @@
+REQUISITI
+voglio costruire una desktop app per tenere sotto controllo le mie finanze
+
+requisiti che deve avere:
+- nessun data leakage dei dati su internet o a claude, salvataggio dati in cartella non leggibile tipo APPSDATA (ma valuta anche altre alternative)
+- possibilità di aggiungere più conti bancari da banche diverse e con monete diverse.
+	- ogni conto è caratterizzato da un nome, una banca, una moneta, una data di apertura e uno di questi tre tipi: spese, salvadanaio, investimenti (+ possibilità di aggiungere altri tipi).
+	- se il tipo è "salvadanaio" devo poter avere la possibilità di specificare se ha un rendimento annuo (es. 2, 3%) che l'app mi deve calcolare (esempio mensilmente mi aggiorna il valore tenendo conto il rendimento annuo selezionato).
+	- se la moneta selezionata non è EUR, voglio che ci sia sempre il riferimento della quantità di soldi nel conto in EUR prendendo il x/EUR giornaliero da Yahoo finance, se in quel momento non c'è connessione internet (ipotizza che sto utilizzando app senza avere wifi acceso), allora prendi ultimo valore x/EUR salvato dall'app.
+
+- l'app deve darmi la possibilità di aggiungere nuove spese/transazioni/ingressi a un altro conto e anche di visualizzare lo stato dei miei investimenti. per quanto riguarda le spese/transazioni/ingressi, ogni spesa/transazione/ingresso che aggiungo deve avere i seguenti campi:
+	- se si tratta di una spesa, conto di origine, quantità di soldi spesi, descrizione, data e anche una categoria (affitto, abbonamenti, trasporti, … + possibilità di aggiungere/modificare/eliminare le categorie). Se il conto di origine non è in EUR, l'amount verrà messo nella moneta del conto (e la UI deve aggiornare il valore di fianco ad amount di conseguenza) e in automatico deve darmi anche il corrispettivo in EUR (es. moneta è EUR, app mi mostra Amount: x EUR, monete è in CHF, app mi mostra Amount: X CHF = Y EUR). quando viene inserita una nuova spesa, l'amount originalo sul conto deve essere aggiornato.
+	- se si tratta di una transazione a un altro conto, i campi devono essere: conto di origini, conto di destinazione, amount (in moneta del conto di destinazione e mostra anche corrispettivo in EUR), eventuali spese di transazione che andranno poi salvate in automatico come una spesa a partire dal conto di origine o destinazione (possibilità di scelta), data, categoria e descrizione (dai anche una descrizione automatica basandoti su conto di origine e destinazione).
+	- se si tratta di un ingresso, i campi devono essere: conto di destinazione, amount in moneta del conto, data, descrizione e categoria.
+
+- l'app deve avere poi una scheda investimenti in cui vengono mostrati i miei conti "investimenti" e posso aggiungere asset e quantità come fatto per progetto portfolio-tracker che qui ti condivido: https://github.com/cricci3/PortfolioTracker. 
+	- se l'amount di un conto investimenti è X e io nella scheda investimenti aggiungo un nuovo asset investito su questo conto, allora il valore investito deve essere amount - Y, non posso "creare nuovi soldi" sul conto. quindi pensa a un meccanismo per gestire ciò.
+
+
+schede dell'app:
+voglio che l'app abbia più schede in base alle varie finestre descritte fin'ora e che siano selezionabili tramite una sezione verticale sulla sinistra dell'app.
+- main page: deve mostrare valore asset totali in diverse valute e totale in EUR, valore su singolo account (in moneta del conto e corrispettivo in EUR) e data di oggi. Poi sotto deve mostrare un grafico con andamento dei singoli conti + totale negli ultimi 30/60/90/max giorni (selezionabile). e sotto una tabella che visualizza tutti i conti: nome del conto, banca, valuta, tipo di conto, data apertura + possibilità di aggiungerne altri + possibilità di modificare gli esistenti.
+- scheda spese/transazioni/income: deve avere un tasto per aggiungere una nuova voce (pensa te se un tasto con poi 3 sottotasti o se 3 tasti diversi subito visibili). Sotto una tabella con una lista delle ultime 30 operazioni e con tasto per modificare le operazioni. possibilità di aggiungere nuove operazioni sotto forma di csv
+- scheda investimenti: voglio la UI di investment-tracker ma diviso per conti investimento. se ho più conti con investimenti, voglio delle sottoschede per ognuni di questi.
+- scheda analytics, deve mostrarmi dei grafici per tenere sotto controllo le mie finanze, es. spese divise per categorie (con tasto per selezionare il lasso di tempo preso in considerazione). grafico a barre per ultimi 12 mesi (o anno selezionabile) per vedere ingressi vs. uscite (investimenti non vengono consierati come uscite). report mensile, per ogni account in vs out vs. investiti in moneta dell'account e anche corrispettivo in EUR
+- scheda export, possibilità di esportare i dati in formato csv/json. Esportare le operazioni, esportare le informazioni sui miei account, esportare report investimenti, ...
+- scheda impostazioni (pensa a possibili impostazioni).
+
+
+app deve essere una desktop app che si apre su localhost.
