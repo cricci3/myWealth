@@ -26,7 +26,7 @@ def test_index_injects_token(server):
 
 def test_static_assets_served(server):
     _, client = server
-    for path, ctype in [("/app.js", "javascript"), ("/app.css", "text/css"), ("/icon.svg", "svg")]:
+    for path, ctype in [("/js/main.js", "javascript"), ("/app.css", "text/css"), ("/icon.svg", "svg")]:
         status, headers, _ = client.request("GET", path, token=None)
         assert status == 200
         assert ctype in headers["Content-Type"]

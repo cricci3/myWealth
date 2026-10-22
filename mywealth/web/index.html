@@ -62,68 +62,15 @@
           <div class="eyebrow" id="today"></div>
           <h1 id="page-title">Home</h1>
         </div>
+        <div class="page-actions" id="page-actions"></div>
       </header>
 
-      <section class="view" data-view="home">
-        <div class="card empty">
-          <h2>Patrimonio e conti</h2>
-          <p>Qui troverai il patrimonio totale in EUR, una card per ogni conto, il grafico dell'andamento e la tabella dei conti.</p>
-          <span class="tag">In arrivo · M1, M6</span>
-        </div>
-      </section>
-
-      <section class="view" data-view="operazioni" hidden>
-        <div class="card empty">
-          <h2>Spese, entrate e trasferimenti</h2>
-          <p>Inserimento rapido con i pulsanti “+ Spesa”, “+ Entrata”, “+ Trasferimento”, tabella con filtri e import da CSV.</p>
-          <span class="tag">In arrivo · M2</span>
-        </div>
-      </section>
-
-      <section class="view" data-view="investimenti" hidden>
-        <div class="card empty">
-          <h2>Conti investimento</h2>
-          <p>Una sottoscheda per ogni conto investimenti: liquidità, investito, valore attuale, rendimento e XIRR.</p>
-          <span class="tag">In arrivo · M5</span>
-        </div>
-      </section>
-
-      <section class="view" data-view="analytics" hidden>
-        <div class="card empty">
-          <h2>Analisi</h2>
-          <p>Spese per categoria, entrate vs uscite, report mensile per conto, patrimonio netto e tasso di risparmio.</p>
-          <span class="tag">In arrivo · M7</span>
-        </div>
-      </section>
-
-      <section class="view" data-view="export" hidden>
-        <div class="card empty">
-          <h2>Esporta i dati</h2>
-          <p>Export CSV/JSON e archivio completo per trasferire i dati su un altro PC.</p>
-          <span class="tag">In arrivo · M8</span>
-        </div>
-      </section>
-
-      <section class="view" data-view="impostazioni" hidden>
-        <div class="card settings">
-          <div class="setting">
-            <div>
-              <div class="setting-name">Tema</div>
-              <div class="setting-hint">“Sistema” segue il tema di Windows.</div>
-            </div>
-            <div class="segmented" id="theme-choice" role="radiogroup" aria-label="Tema">
-              <button type="button" role="radio" data-theme-choice="system">Sistema</button>
-              <button type="button" role="radio" data-theme-choice="light">Chiaro</button>
-              <button type="button" role="radio" data-theme-choice="dark">Scuro</button>
-            </div>
-          </div>
-        </div>
-
-        <h2 class="section-title">Informazioni</h2>
-        <div class="card">
-          <dl class="info" id="info"></dl>
-        </div>
-      </section>
+      <section class="view" data-view="home" id="view-home"></section>
+      <section class="view" data-view="operazioni" id="view-operazioni" hidden></section>
+      <section class="view" data-view="investimenti" id="view-investimenti" hidden></section>
+      <section class="view" data-view="analytics" id="view-analytics" hidden></section>
+      <section class="view" data-view="export" id="view-export" hidden></section>
+      <section class="view" data-view="impostazioni" id="view-impostazioni" hidden></section>
     </main>
   </div>
 
@@ -139,6 +86,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/app.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

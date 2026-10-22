@@ -19,11 +19,13 @@ import threading
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from typing import Any
+from urllib.parse import parse_qsl, quote, urlparse
 
-from . import __version__, settings
 from .db import Database
+from .errors import AppError
 from .instance import APP_ID, PING_PATH
+from .router import Request, Response
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +34,11 @@ TOKEN_HEADER = "X-MyWealth-Token"
 TOKEN_PLACEHOLDER = "__MYWEALTH_TOKEN__"
 ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 MAX_BODY = 1_000_000
+MAX_UPLOAD = 200_000_000  # raw uploads (archives, CSV files)
+
+mimetypes.add_type("text/javascript", ".js")  # the Windows registry may say otherwise
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/svg+xml", ".svg")
 
 
 @dataclass
@@ -40,6 +47,11 @@ class AppContext:
     data_dir: Path
     demo: bool = False
     token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
+    server: Any = field(default=None, repr=False)
+
+    def request_shutdown(self) -> None:
+        if self.server is not None:
+            self.server.request_shutdown()
 
 
 class ApiError(Exception):
@@ -60,6 +72,7 @@ class MyWealthServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], ctx: AppContext):
         super().__init__(address, Handler)
         self.ctx = ctx
+        ctx.server = self
 
     def server_bind(self) -> None:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
@@ -122,14 +135,20 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, status: int, data) -> None:
         self._send(status, json.dumps(data).encode(), "application/json; charset=utf-8")
 
-    def _body(self) -> dict:
+    def _read(self, limit: int) -> bytes:
+        if self._raw_cache is not None:
+            return self._raw_cache
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             raise ApiError(400, "Richiesta non valida.") from None
-        if n > MAX_BODY:
+        if n > limit:
             raise ApiError(413, "Richiesta troppo grande.")
-        raw = self.rfile.read(n) if n > 0 else b""
+        self._raw_cache = self.rfile.read(n) if n > 0 else b""
+        return self._raw_cache
+
+    def _body(self) -> dict:
+        raw = self._read(MAX_BODY)
         try:
             data = json.loads(raw or b"{}")
         except ValueError:
@@ -141,16 +160,18 @@ class Handler(BaseHTTPRequestHandler):
     # --------------------------------------------------------------- dispatch
 
     def _handle(self, method: str) -> None:
+        self._raw_cache: bytes | None = None
         if not self._host_ok():
             self._send(403, b"Forbidden", "text/plain; charset=utf-8")
             return
-        path = urlparse(self.path).path
+        url = urlparse(self.path)
+        path = url.path
         try:
             if path.startswith("/api/"):
                 token = self.headers.get(TOKEN_HEADER, "")
                 if not secrets.compare_digest(token.encode(), self.ctx.token.encode()):
                     raise ApiError(403, "Token non valido: ricarica la pagina.")
-                self._api(method, path)
+                self._api(method, path, dict(parse_qsl(url.query)))
             elif method == "GET" and path == PING_PATH:
                 self._json(200, {"app": APP_ID})
             elif method == "GET":
@@ -158,6 +179,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 raise ApiError(405, "Metodo non consentito.")
         except ApiError as e:
+            self._json(e.status, {"error": str(e)})
+        except AppError as e:
             self._json(e.status, {"error": str(e)})
         except Exception:
             log.exception("Unexpected error on %s %s", method, path)
@@ -195,36 +218,37 @@ class Handler(BaseHTTPRequestHandler):
 
     # -------------------------------------------------------------------- api
 
-    def _api(self, method: str, path: str) -> None:
-        route = path[len("/api/"):].rstrip("/")
+    def _api(self, method: str, path: str, query: dict[str, str]) -> None:
+        from .api import routes  # late import: api imports the domain modules
 
-        if method == "GET" and route == "status":
-            self._json(
-                200,
-                {
-                    "version": __version__,
-                    "demo": self.ctx.demo,
-                    "data_dir": str(self.ctx.data_dir),
-                    "schema_version": self.ctx.db.schema_version(),
-                },
+        found = routes.match(method, path[len("/api/"):].rstrip("/"))
+        if not found:
+            raise ApiError(404, "Endpoint non trovato.")
+        func, params = found
+        req = Request(
+            method=method,
+            params=params,
+            query=query,
+            _body=self._body,
+            _raw=lambda: self._read(MAX_UPLOAD),
+            headers={k.lower(): v for k, v in self.headers.items()},
+        )
+        result = func(self.ctx, req)
+        if isinstance(result, Response):
+            self._file(result)
+        else:
+            self._json(200, result)
+
+    def _file(self, res: Response) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", res.content_type)
+        self.send_header("Content-Length", str(len(res.body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if res.filename:
+            self.send_header(
+                "Content-Disposition",
+                f"attachment; filename=\"{res.filename}\"; filename*=UTF-8''{quote(res.filename)}",
             )
-            return
-
-        if route == "settings":
-            if method == "GET":
-                self._json(200, settings.load(self.ctx.db))
-                return
-            if method == "PUT":
-                try:
-                    self._json(200, settings.update(self.ctx.db, self._body()))
-                except settings.SettingsError as e:
-                    raise ApiError(400, str(e)) from None
-                return
-
-        if method == "POST" and route == "shutdown":
-            self._json(200, {"ok": True})
-            log.info("Shutdown requested from the UI")
-            self.server.request_shutdown()
-            return
-
-        raise ApiError(404, "Endpoint non trovato.")
+        self.end_headers()
+        self.wfile.write(res.body)

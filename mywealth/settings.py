@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .db import Database
+from .errors import ValidationError
 
 DEFAULTS: dict = {
     "theme": "system",  # system | light | dark
@@ -13,7 +14,7 @@ _CHOICES: dict[str, tuple] = {
 }
 
 
-class SettingsError(ValueError):
+class SettingsError(ValidationError):
     pass
 
 

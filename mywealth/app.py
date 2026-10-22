@@ -95,6 +95,10 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
         except SchemaTooNewError as e:
             log.error("%s", e)
             return 1
+        if args.demo:
+            from . import demo
+
+            demo.seed(db)
         ctx = AppContext(db=db, data_dir=data_dir, demo=args.demo)
         httpd = make_server(ctx, args.port)
         lock.set_port(httpd.port)
