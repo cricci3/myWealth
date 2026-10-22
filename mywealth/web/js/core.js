@@ -243,6 +243,7 @@ export const state = {
   types: [],
   categories: [],
   currencies: [],
+  rates: {},  // currency -> {rate, date, source}: latest EUR rates
 };
 
 const listeners = new Set();
@@ -261,3 +262,16 @@ export const accountById = (id) => state.accounts.find((a) => a.id === Number(id
 export const activeAccounts = () => state.accounts.filter((a) => !a.archived);
 export const curDecimals = (cur) => (state.currencies.find((c) => c.code === cur) || { decimals: 2 }).decimals;
 export const BEHAVIOR_NAMES = { standard: "Standard", savings: "Salvadanaio", investment: "Investimenti" };
+
+export async function loadCategories() {
+  state.categories = await api("GET", "/api/categories");
+  return state.categories;
+}
+
+/** Live "= Y EUR" next to an amount field, with the latest known rate (preview only). */
+export function eurHint(el, value, cur, _date) {
+  if (!cur || cur === "EUR" || !isFinite(value) || value === 0) { el.textContent = ""; return; }
+  const r = (state.rates || {})[cur];
+  if (!r || !r.rate) { el.textContent = "Controvalore EUR non disponibile"; return; }
+  el.textContent = `= ${money(value * Number(r.rate), "EUR")}`;
+}

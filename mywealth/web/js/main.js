@@ -2,10 +2,11 @@
 import { $, $$, api, onChange, state, store, toast, LOCALE, loadAccounts } from "./core.js";
 import home from "./views/home.js";
 import settingsView from "./views/settings.js";
+import operations from "./views/operations.js";
 
 const VIEWS = {
   home: { title: "Home", view: home },
-  operazioni: { title: "Operazioni", view: placeholder("Spese, entrate e trasferimenti", "In arrivo · M2") },
+  operazioni: { title: "Operazioni", view: operations },
   investimenti: { title: "Investimenti", view: placeholder("Conti investimento", "In arrivo · M5") },
   analytics: { title: "Analytics", view: placeholder("Analisi", "In arrivo · M7") },
   export: { title: "Export", view: placeholder("Esporta i dati", "In arrivo · M8") },

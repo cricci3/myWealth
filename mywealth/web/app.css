@@ -247,6 +247,35 @@ svg { display: block; }
 .input-unit .unit { position: absolute; right: 11px; color: var(--muted); font-size: 12.5px; pointer-events: none; font-weight: 500; }
 .eur-hint { font-weight: 400; color: var(--muted); font-size: 12px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
+/* --------------------------------------------------------------- operations */
+.quick-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.quick-add .spacer { flex: 1; }
+.btn-quick { height: 40px; padding: 0 16px 0 12px; font-weight: 600; }
+.btn-quick svg { stroke-width: 2.4; }
+.btn-quick.expense svg { color: var(--neg); }
+.btn-quick.income svg { color: var(--pos); }
+.btn-quick.transfer svg { color: var(--focus); }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 12px 14px 2px; margin-bottom: 14px; }
+.filters-wrap > summary { display: none; list-style: none; }
+.filters-wrap > summary::-webkit-details-marker { display: none; }
+.filters .field { margin-bottom: 10px; flex: 1 1 110px; }
+.filters .field.grow { flex: 1 1 160px; }
+.filters .field input, .filters .field select { height: 34px; font-size: 13px; }
+.filters .reset { margin-bottom: 12px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; align-items: center; }
+.tags .cat { color: var(--muted); font-size: 12px; }
+.tags .pill { margin-left: 0; }
+.kind-tag { font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--text-2); padding: 0 7px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); line-height: 18px; }
+.kind-tag.expense, .kind-tag.fee { color: var(--neg); background: var(--neg-soft); border-color: transparent; }
+.kind-tag.income, .kind-tag.interest { color: var(--pos); background: var(--pos-soft); border-color: transparent; }
+.arrow { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+.small { font-size: 12px; }
+.show-sm { display: none; }
+.load-more { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 12.5px; }
+.fee-toggle { margin: 2px 0 12px; }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
+
 /* -------------------------------------------------------------- responsive */
 /* Narrow window: the sidebar collapses to an icon rail. */
 @media (max-width: 820px) {
@@ -262,6 +291,9 @@ svg { display: block; }
 }
 @media (max-width: 560px) {
   .hide-sm { display: none; }
+  .show-sm { display: block; }
+  .filters .field { flex: 1 1 40%; }
+  .filters-wrap > summary { display: inline-flex; margin-bottom: 10px; }
   .table th, .table td { padding: 9px 8px; }
   .table .actions { padding: 2px 4px; }
   .grid2 { grid-template-columns: 1fr; }

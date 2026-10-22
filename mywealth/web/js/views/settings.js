@@ -1,7 +1,10 @@
 /* Settings: theme, account types, information. */
 import {
-  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, esc, formData, ICON, loadAccounts, openDialog, state, toast,
+  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, esc, formData, ICON, loadAccounts, loadCategories, openDialog,
+  options, state, toast,
 } from "../core.js";
+
+const NATURES = { expense: "Spese", income: "Entrate", transfer: "Trasferimenti" };
 
 let root;
 
@@ -28,11 +31,18 @@ function mount(el) {
     </div>
     <div class="card table-card"><div id="types-table"></div></div>
 
+    <div class="section-head">
+      <h2 class="section-title">Categorie</h2>
+      <button class="btn btn-sm" type="button" id="btn-new-cat">${ICON.plus}Nuova categoria</button>
+    </div>
+    <div class="cat-grid" id="cat-grid"></div>
+
     <h2 class="section-title">Informazioni</h2>
     <div class="card"><dl class="info" id="info"></dl></div>`;
   $$("[data-theme-choice]", el).forEach((b) =>
     b.addEventListener("click", () => window.dispatchEvent(new CustomEvent("mw-save-theme", { detail: b.dataset.themeChoice }))));
   $("#btn-new-type", el).addEventListener("click", () => typeDialog());
+  $("#btn-new-cat", el).addEventListener("click", () => categoryDialog());
 }
 
 async function show() {
@@ -42,8 +52,9 @@ async function show() {
     b.classList.toggle("on", on);
     b.setAttribute("aria-checked", String(on));
   });
-  await loadAccounts();
+  await Promise.all([loadAccounts(), loadCategories()]);
   renderTypes();
+  renderCategories();
   renderInfo();
 }
 
@@ -101,6 +112,81 @@ function typeDialog(t = null) {
       await loadAccounts();
       changed("types");
       return saved;
+    },
+  });
+}
+
+function renderCategories() {
+  const box = $("#cat-grid", root);
+  box.innerHTML = Object.entries(NATURES).map(([nature, label]) => `
+    <div class="card table-card"><div>
+      <table class="table">
+        <thead><tr><th>${label}</th><th class="num">Usi</th><th class="actions"></th></tr></thead>
+        <tbody>${state.categories.filter((c) => c.nature === nature).map((c) => `
+          <tr class="${c.archived ? "muted-row" : ""}">
+            <td><div class="cell-main">${esc(c.name)}</div>${c.archived ? '<span class="pill">archiviata</span>' : ""}</td>
+            <td class="num">${c.used}</td>
+            <td class="actions">
+              <button class="icon-btn" title="Rinomina" data-act="edit" data-id="${c.id}">${ICON.edit}</button>
+              ${c.system_key ? "" : `
+              <button class="icon-btn" title="${c.archived ? "Ripristina" : "Archivia"}" data-act="archive" data-id="${c.id}">${c.archived ? ICON.unarchive : ICON.archive}</button>
+              <button class="icon-btn danger" title="Elimina" data-act="delete" data-id="${c.id}">${ICON.trash}</button>`}
+            </td>
+          </tr>`).join("")}</tbody>
+      </table></div></div>`).join("");
+  $$("[data-act]", box).forEach((b) => b.addEventListener("click", async () => {
+    const c = state.categories.find((x) => x.id === Number(b.dataset.id));
+    try {
+      if (b.dataset.act === "edit") return categoryDialog(c);
+      if (b.dataset.act === "archive") await api("PUT", `/api/categories/${c.id}`, { archived: !c.archived });
+      if (b.dataset.act === "delete") {
+        if (!(await deleteCategoryDialog(c))) return;
+      }
+      await loadCategories();
+      changed("categories");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }));
+}
+
+function categoryDialog(c = null) {
+  return openDialog({
+    title: c ? "Rinomina categoria" : "Nuova categoria",
+    render(body) {
+      body.innerHTML = `
+        <label class="field">Nome<input name="name" maxlength="60" value="${esc(c?.name)}" autocomplete="off"></label>
+        ${c ? "" : `<label class="field">Natura<select name="nature">
+          ${Object.entries(NATURES).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>`}`;
+    },
+    async onSubmit(form) {
+      const data = formData(form);
+      const saved = c ? await api("PUT", `/api/categories/${c.id}`, data) : await api("POST", "/api/categories", data);
+      await loadCategories();
+      changed("categories");
+      return saved;
+    },
+  });
+}
+
+function deleteCategoryDialog(c) {
+  if (!c.used) {
+    return confirmDialog("Elimina categoria", `Eliminare la categoria “${esc(c.name)}”?`, { confirmLabel: "Elimina" })
+      .then((ok) => ok && api("DELETE", `/api/categories/${c.id}`));
+  }
+  const others = state.categories.filter((x) => x.nature === c.nature && x.id !== c.id && !x.archived);
+  return openDialog({
+    title: "Elimina categoria",
+    submitLabel: "Sposta ed elimina",
+    danger: true,
+    render(body) {
+      body.innerHTML = `
+        <p class="dlg-text">“${esc(c.name)}” è usata da ${c.used} operazion${c.used === 1 ? "e" : "i"}. Scegli la categoria in cui spostarle.</p>
+        <label class="field" style="margin-top:12px">Sposta in<select name="move_to">${options(others)}</select></label>`;
+    },
+    async onSubmit(form) {
+      await api("DELETE", `/api/categories/${c.id}?move_to=${encodeURIComponent(form.elements.move_to.value)}`);
+      return true;
     },
   });
 }

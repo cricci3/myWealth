@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, money, settings
+from . import __version__, accounts, categories, money, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -94,4 +94,59 @@ def update_account(ctx, req: Request):
 @routes.delete("accounts/<id>")
 def delete_account(ctx, req: Request):
     accounts.delete_account(ctx.db, req.params["id"])
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------ categories
+
+
+@routes.get("categories")
+def list_categories(ctx, req: Request):
+    return categories.list_categories(ctx.db)
+
+
+@routes.post("categories")
+def create_category(ctx, req: Request):
+    return categories.create_category(ctx.db, req.body())
+
+
+@routes.put("categories/<id>")
+def update_category(ctx, req: Request):
+    return categories.update_category(ctx.db, req.params["id"], req.body())
+
+
+@routes.delete("categories/<id>")
+def delete_category(ctx, req: Request):
+    categories.delete_category(ctx.db, req.params["id"], req.q("move_to"))
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- transactions
+
+
+@routes.get("transactions")
+def list_transactions(ctx, req: Request):
+    return transactions.list_transactions(
+        ctx.db, req.query, limit=req.q_int("limit", transactions.DEFAULT_PAGE), offset=req.q_int("offset", 0)
+    )
+
+
+@routes.post("transactions")
+def create_transaction(ctx, req: Request):
+    return transactions.create(ctx.db, req.body())
+
+
+@routes.get("transactions/<id>")
+def get_transaction(ctx, req: Request):
+    return transactions.get(ctx.db, req.params["id"])
+
+
+@routes.put("transactions/<id>")
+def update_transaction(ctx, req: Request):
+    return transactions.update(ctx.db, req.params["id"], req.body())
+
+
+@routes.delete("transactions/<id>")
+def delete_transaction(ctx, req: Request):
+    transactions.delete(ctx.db, req.params["id"])
     return {"ok": True}

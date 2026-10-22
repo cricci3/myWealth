@@ -9,3 +9,11 @@ def test_demo_seed(db):
     assert {a["currency"] for a in accs} >= {"EUR", "CHF", "USD"}
     assert sum(a["behavior"] == "investment" for a in accs) == 2
     assert any(a["behavior"] == "savings" for a in accs)
+
+
+def test_demo_has_a_year_of_operations_and_no_negative_balance(db):
+    from mywealth import transactions
+
+    demo.seed(db)
+    assert transactions.list_transactions(db)["total"] > 200
+    assert all(a["balance_minor"] >= 0 for a in accounts.list_accounts(db))
