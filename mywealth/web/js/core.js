@@ -1,7 +1,10 @@
 /* myWealth — shared helpers: API access, formatting, parsing, dialogs, toasts. */
 
 export const TOKEN = document.querySelector('meta[name="mywealth-token"]').content;
-export const LOCALE = "it-IT";
+export const LOCALE = "it-IT"; // texts and dates are always Italian
+/** Number format (setting): it-IT "1.234,56" or en-GB "1,234.56". */
+export let NUM_LOCALE = "it-IT";
+export function setNumberLocale(loc) { NUM_LOCALE = loc === "en-GB" ? "en-GB" : "it-IT"; }
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
@@ -61,11 +64,11 @@ export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&a
 
 const fmtCache = {};
 function moneyFormatter(cur, dec) {
-  const k = `${cur}|${dec}`;
+  const k = `${NUM_LOCALE}|${cur}|${dec}`;
   if (!fmtCache[k]) {
     const opts = { style: "currency", currency: cur, currencyDisplay: "code", useGrouping: "always" };
     if (dec != null) { opts.minimumFractionDigits = dec; opts.maximumFractionDigits = dec; }
-    fmtCache[k] = new Intl.NumberFormat(LOCALE, opts);
+    fmtCache[k] = new Intl.NumberFormat(NUM_LOCALE, opts);
   }
   return fmtCache[k];
 }
@@ -89,15 +92,15 @@ export const signedMoney = (v, cur, dec) => {
 
 export function num(value, maxDec = 2, minDec = 0) {
   if (value == null || value === "") return "—";
-  return Number(value).toLocaleString(LOCALE, { minimumFractionDigits: minDec, maximumFractionDigits: maxDec, useGrouping: "always" });
+  return Number(value).toLocaleString(NUM_LOCALE, { minimumFractionDigits: minDec, maximumFractionDigits: maxDec, useGrouping: "always" });
 }
 
 export const pct = (v, dec = 1) => (v == null || isNaN(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") +
-  Math.abs(v).toLocaleString(LOCALE, { minimumFractionDigits: dec, maximumFractionDigits: dec }) + "%");
+  Math.abs(v).toLocaleString(NUM_LOCALE, { minimumFractionDigits: dec, maximumFractionDigits: dec }) + "%");
 
 export const tone = (v) => (v == null ? "" : Number(v) > 0 ? "pos" : Number(v) < 0 ? "neg" : "");
 
-export const compact = (v) => new Intl.NumberFormat(LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(v);
+export const compact = (v) => new Intl.NumberFormat(NUM_LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(v);
 
 export const dateFmt = (iso) => { if (!iso) return "—"; const [y, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
 export const monthName = (ym) => new Date(ym + "-01T00:00:00").toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
@@ -127,7 +130,7 @@ export function parseNum(text, grouping = true) {
 }
 
 /** Number -> text for an input field, Italian style without grouping ("1234,5"). */
-export const inputNum = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+export const inputNum = (v) => (v == null || v === "" ? "" : NUM_LOCALE === "it-IT" ? String(v).replace(".", ",") : String(v));
 
 // --------------------------------------------------------------------- toast --
 let toastTimer;

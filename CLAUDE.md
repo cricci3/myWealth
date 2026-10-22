@@ -21,6 +21,7 @@ Personal desktop app (local web server + browser UI) to track bank accounts, exp
 - `uv run pytest` — run tests
 - The real app (`uv run mywealth`, `mywealth-gui`, the Start-menu shortcut) is run by the user, not by Claude.
 - `uv run mywealth --install-shortcuts` / `--uninstall-shortcuts` — Start menu and desktop shortcuts (user only, see SPEC §13)
+- `uv run python tools/make_icon.py` — regenerate `mywealth/web/icon.ico` from the mark in `icon.svg`
 
 ## Tech constraints
 

@@ -1,5 +1,5 @@
 /* myWealth — UI entry point: router, theme, exit. Vanilla JS modules, no external dependencies. */
-import { $, $$, api, changed, onChange, state, store, toast, LOCALE, loadAccounts, loadRates } from "./core.js";
+import { $, $$, api, changed, onChange, state, store, toast, LOCALE, loadAccounts, loadRates, setNumberLocale } from "./core.js";
 import home from "./views/home.js";
 import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
@@ -121,6 +121,7 @@ async function init() {
       api("GET", "/api/settings"), api("GET", "/api/status"), api("GET", "/api/currencies"), loadAccounts(), loadRates(),
     ]);
     state.settings = settings;
+    setNumberLocale(settings.number_format);
     state.status = status;
     state.currencies = currencies;
     applyTheme(settings.theme);

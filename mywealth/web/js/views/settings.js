@@ -26,6 +26,15 @@ function mount(el) {
       </div>
       <div class="setting">
         <div>
+          <div class="setting-name">Formato dei numeri</div>
+          <div class="setting-hint">Le date sono sempre gg/mm/aaaa. Negli importi puoi sempre scrivere sia 1.234,56 sia 1234.56.</div>
+        </div>
+        <select class="input auto-w" data-setting-select="number_format" data-reload aria-label="Formato dei numeri">
+          <option value="it-IT">1.234,56 (italiano)</option><option value="en-GB">1,234.56 (inglese)</option>
+        </select>
+      </div>
+      <div class="setting">
+        <div>
           <div class="setting-name">Periodo del grafico in Home</div>
           <div class="setting-hint">Quello mostrato all'apertura; puoi cambiarlo dalla Home in ogni momento.</div>
         </div>
@@ -204,6 +213,7 @@ function mount(el) {
     try {
       state.settings = await api("PUT", "/api/settings", { [sel.dataset.settingSelect]: sel.value });
       toast("Impostazione salvata");
+      if ("reload" in sel.dataset) setTimeout(() => location.reload(), 500);
     } catch (e) {
       sel.value = state.settings[sel.dataset.settingSelect];
       toast(e.message, true);

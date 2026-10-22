@@ -12,7 +12,7 @@
 |---|------|---------------------|
 | D1 | Protezione dati "a riposo" | Nessuna cifratura applicativa: dati in `%APPDATA%\myWealth\` + BitLocker di Windows + regole che impediscono a Claude Code di leggerli. Cifratura con password come milestone opzionale (vedi §2.3). |
 | D2 | Lingua UI | Italiano; numeri in formato `it-IT` (`1.234,56`), input che accetta anche `1234.56`. Codice e commenti in inglese. |
-| D3 | Interessi salvadanaio | Capitalizzazione mensile, accreditata come entrata automatica a fine mese (vedi §5.3). |
+| D3 | Interessi salvadanaio | Maturazione giornaliera sul saldo di fine giornata, accreditata come entrata automatica a fine mese (vedi §5.3). |
 | D4 | Trasferimenti tra valute diverse | Si inseriscono entrambi gli importi (inviato e ricevuto); il secondo è precompilato col cambio Yahoo ma modificabile (vedi §6.3). |
 | D5 | Acquisto asset senza liquidità sufficiente | Bloccato con messaggio d'errore (vedi §7.2). |
 | D6 | Formato CSV di import | Formato proprio dell'app con template scaricabile; mappature per banche specifiche in seguito (vedi §9). |
@@ -81,9 +81,9 @@ Nome, banca, valuta, data di apertura, **saldo iniziale alla data di apertura** 
 - Un conto con operazioni non si elimina: si **archivia** (sparisce dalle selezioni ma resta nello storico). Eliminazione consentita solo se il conto non ha operazioni.
 - Cambiare la valuta di un conto con operazioni non è consentito.
 
-### 5.3 Salvadanaio con rendimento **[DECISIONE PROPOSTA D3]**
+### 5.3 Salvadanaio con rendimento **[DECISIONE D3, confermata con modifica]**
 - Campo opzionale "rendimento annuo %" (con storico, vedi `savings_rates`).
-- Alla fine di ogni mese l'app genera un'operazione di tipo `interest` (entrata, categoria "Interessi", `auto = true`) pari a `saldo di fine mese × tasso / 12`.
+- Gli interessi maturano **ogni giorno** sul saldo di fine giornata: `saldo × tasso annuo / 12 / giorni del mese`, con il tasso valido quel giorno (un saldo negativo non matura nulla). Alla fine di ogni mese l'app genera un'operazione di tipo `interest` (entrata, categoria "Interessi", `auto = true`) pari alla somma del mese, arrotondata una sola volta.
 - All'avvio l'app genera gli interessi per tutti i mesi conclusi non ancora calcolati (recupero idempotente: rieseguire non crea duplicati).
 - Gli interessi generati sono visibili e modificabili/eliminabili come ogni altra operazione, così l'utente può allinearli all'importo reale accreditato dalla banca.
 - Impostazione per scegliere se applicare la ritenuta fiscale (es. 26%) sugli interessi.
@@ -133,8 +133,8 @@ Conto destinazione, importo nella valuta del conto (con controvalore EUR), data,
 ### 7.2 Liquidità vs investito **[DECISIONE PROPOSTA D5]**
 - Il saldo del conto (saldo iniziale + entrate + trasferimenti in − uscite) rappresenta la **liquidità** disponibile.
 - Aggiungere un asset o un contributo crea un'operazione `buy` che sposta l'importo dalla liquidità alla posizione. Non si possono "creare soldi": se la liquidità è insufficiente l'operazione è bloccata, con il suggerimento di registrare prima un trasferimento o un'entrata.
-- Vendita (totale o parziale) di un asset: operazione `sell` che restituisce liquidità al conto al controvalore inserito.
-- Commissioni di acquisto/vendita opzionali, registrate come `fee`.
+- Vendita (totale o parziale) di un asset: operazione `sell` che restituisce liquidità al conto al controvalore inserito. Si inseriscono **quote vendute e importo incassato**; il costo delle quote vendute (costo medio) esce dall'investito, la differenza è guadagno realizzato.
+- Commissioni di acquisto/vendita opzionali, registrate come `fee`: sono **spese normali** (categoria "Commissioni bancarie") e i rendimenti dell'asset non le considerano, come in PortfolioTracker.
 - Dividendi: entrata sul conto investimenti con categoria "Dividendi".
 - Valore del conto investimenti = liquidità + valore di mercato delle posizioni.
 - Asset quotati in una valuta diversa dal conto: conversione come in PortfolioTracker.
@@ -289,3 +289,47 @@ Obiettivo: aprire l'app come una normale applicazione Windows, senza VS Code né
 
 ### 13.5 Avvio con Windows (opzionale)
 Impostazione "Avvia myWealth all'accesso a Windows" (collegamento nella cartella Esecuzione automatica), disattivata di default.
+
+---
+
+## 14. Decisioni prese durante lo sviluppo
+
+Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
+
+**Conti e operazioni**
+- Nomi dei conti unici (senza distinzione maiuscole/minuscole): servono anche all'import CSV. Il saldo iniziale può essere negativo.
+- La data di apertura non può superare la data della prima operazione; il comportamento di un tipo di conto non si cambia se il tipo è già usato.
+- Le operazioni non possono avere una data futura né precedente all'apertura del conto.
+- La commissione di un trasferimento è mostrata nella riga del trasferimento e si modifica solo da lì.
+- Le operazioni `buy`/`sell` (e le loro commissioni) si gestiscono solo dalla scheda Investimenti.
+
+**Cambi**
+- Tasso usato per un giorno: quello del giorno, altrimenti il più recente precedente; se non ne esiste nessuno precedente, il primo successivo (così un tasso manuale inserito oggi dà subito un controvalore anche alle operazioni passate).
+- Un tasso manuale ha la precedenza su Yahoo per lo stesso giorno.
+- All'avvio al massimo un download al giorno per coppia (e per ticker); un secondo solo se serve storico più vecchio. Il pulsante "Aggiorna" forza il download.
+- Lo snapshot di un'operazione viene completato quando arriva il tasso del suo giorno; una volta che è quello del suo giorno non viene più riscritto.
+
+**Salvadanaio**
+- I mesi già calcolati sono registrati: un interesse eliminato o modificato a mano non viene rigenerato. "Ricalcola dal mese" rifà i mesi scelti (dopo operazioni o tassi inseriti nel passato).
+- La ritenuta si applica al momento della generazione; i conti archiviati non maturano interessi.
+
+**Investimenti**
+- Importi degli acquisti nella valuta del conto investimenti; strumenti in altra valuta convertiti con i cambi verso EUR del giorno (quotazioni in pence divise per 100).
+- Un acquisto è bloccato se la liquidità diventa negativa alla sua data o oggi.
+- Le quote di un acquisto sono calcolate dal prezzo di chiusura del primo giorno di borsa dalla data (o dal prezzo/numero di quote inseriti) e ricalcolate quando arrivano i prezzi.
+- XIRR mostrato dopo 6 mesi di storico, "ultimi 12 mesi" (Modified Dietz) dopo un anno, come in PortfolioTracker.
+
+**Analytics**
+- Spese = `expense` + `fee`; entrate = `income` + `interest`; tutto in EUR al cambio di ogni operazione. Le operazioni ancora senza cambio sono escluse e conteggiate a parte.
+- Report per conto: entrate, uscite, trasferimenti netti, investito (acquisti − vendite).
+
+**Export, import, archivio**
+- L'export CSV delle operazioni usa lo stesso formato dell'import (più valuta e controvalore EUR), con `;` e virgola decimale, quindi si può reimportare.
+- Duplicati nell'import CSV = stessa data, conto, importo e descrizione: solo un avviso.
+- Le categorie sconosciute nell'import si creano solo se l'utente lo chiede.
+- Backup automatico all'avvio solo se il database non è vuoto (e mai in demo).
+- "Prova con dati demo" dalla schermata di primo avvio apre un'istanza demo separata (altra porta, dati temporanei).
+
+**Avvio**
+- La chiusura per inattività vale solo quando è l'app ad aprire la finestra (non con `--no-browser`, usato in sviluppo).
+- Formato dei numeri: `1.234,56` (default) o `1,234.56`; date sempre gg/mm/aaaa e testi in italiano.

@@ -12,6 +12,7 @@ DEFAULTS: dict = {
     "interest_tax_enabled": False,  # withholding tax on savings interest
     "interest_tax_rate": "26",  # percent, decimal text
     "home_range": "90",  # default range of the Home chart
+    "number_format": "it-IT",  # it-IT 1.234,56 | en-GB 1,234.56 (display only)
     "backup_keep": 10,  # automatic backups kept in <data dir>/backups
     "onboarded": False,  # first-run screen already answered
     "launch_mode": "app",  # app: Edge window without address bar; browser: default browser tab
@@ -26,6 +27,7 @@ _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
     "home_range": ("30", "60", "90", "max"),
     "launch_mode": ("app", "browser"),
+    "number_format": ("it-IT", "en-GB"),
 }
 
 # key -> (min, max) for integer settings
