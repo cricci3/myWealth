@@ -346,7 +346,18 @@ Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
 
 **Avvio**
 - La chiusura per inattività vale solo quando è l'app ad aprire la finestra (non con `--no-browser`, usato in sviluppo).
+- (M12) L'impostazione `app_browser` (Automatico / Brave / Edge / Browser predefinito) sostituisce `launch_mode`; un vecchio `launch_mode = browser` vale come "Browser predefinito". Brave ed Edge hanno profili separati (`browser-profile-brave`, `browser-profile`). Brave scelto ma assente → Edge → scheda del browser predefinito.
 - Formato dei numeri: `1.234,56` (default) o `1,234.56`; date sempre gg/mm/aaaa e testi in italiano.
+
+**Smartphone (M13–M14)**
+- QR generato con `segno` (Python puro, nessuna estensione compilata). Contenuto: JSON compatto `{"mw":1,"key","kid","at","accounts":[[nome, valuta, decimali]],"categories":{"expense":[…],"income":[…],"transfer":[…]}}`. Oltre 700 caratteri si divide in più QR `MWQR:<i>/<n>:<parte>`, leggibili in qualsiasi ordine; il testo da copiare è il JSON intero. I decimali della valuta servono al telefono per controllare l'importo.
+- AAD della cifratura = il testo base64url dell'intestazione così come è scritto nel file (nessuna ambiguità di serializzazione JSON).
+- La chiave (`mobile_key.json`) non è nell'archivio `.mywealth`: su un nuovo PC lo smartphone va abbinato di nuovo. "Rigenera chiave" chiede conferma.
+- La cartella in arrivo è controllata dalla pagina (all'apertura, ogni 2 minuti e quando la finestra torna visibile), non da un timer del server. In demo la cartella predefinita è `<dati demo>/inbox`, mai la Download reale. Attivazione e percorso sono impostazioni legate al computer (non importate da un archivio). Nomi validi: `mywealth-*.txt` (anche rinominati dal browser, es. `… (1).txt`), al massimo 2 MB.
+- Più file si importano insieme (un'unica anteprima e un'unica transazione); la colonna "Riga" indica file e riga. Un file scelto a mano viene cancellato solo se è identico a uno della cartella in arrivo; altrimenti la UI ricorda di cancellarlo. Se tutte le voci erano già importate, il pulsante diventa "Rimuovi i file già importati".
+- Un `id` mancante o non UUID è un errore; un `id` ripetuto nello stesso file conta come già importato. La deduplica per `id` vale solo per l'import da smartphone, non per l'import CSV normale.
+- PWA: il controllo aggiornamenti scarica solo `sw.js` dallo stesso sito (nessun dato). Dopo l'abbinamento la chiave è una `CryptoKey` non esportabile in IndexedDB. Una configurazione con chiave diversa sostituisce la precedente: le voci in sospeso verranno cifrate con la nuova. "Rimuovi abbinamento" cancella chiave e configurazione ma non le voci. Le voci esportate sono raggruppate per invio, ognuno con "Esporta di nuovo". Se la condivisione è rifiutata dal browser (non annullata dall'utente), il file viene scaricato.
+- Test (§16.8): Playwright non è installato sulla macchina; la logica JS (cifratura, CSV, abbinamento, completezza della cache offline, CSP) è testata con il test runner di Node.js e la sua Web Crypto (stessa API standard), lanciato anche da pytest. Il flusso completo (abbinamento, inserimento, export, uso offline, import sul desktop) è stato verificato in Edge headless in emulazione mobile contro un'istanza `--demo`.
 
 ---
 

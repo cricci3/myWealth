@@ -1,6 +1,6 @@
-"""Generate mywealth/web/icon.ico (the Start menu / desktop shortcut icon) without
-external libraries: the same rising-line mark as icon.svg, rasterized with
-supersampling and stored as PNG images inside an ICO container.
+"""Generate mywealth/web/icon.ico (the Start menu / desktop shortcut icon) and the PNG
+icons of the smartphone app (mobile/icons/) without external libraries: the same
+rising-line mark as icon.svg, rasterized with supersampling.
 
     uv run python tools/make_icon.py
 """
@@ -11,7 +11,9 @@ import struct
 import zlib
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parents[1] / "mywealth" / "web" / "icon.ico"
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "mywealth" / "web" / "icon.ico"
+MOBILE = ROOT / "mobile" / "icons"
 SIZES = (16, 24, 32, 48, 64, 128, 256)
 
 BG = (27, 27, 25)  # --text of the light theme
@@ -34,10 +36,13 @@ def _inside_rounded(x, y, size, r):
     return (x - cx) ** 2 + (y - cy) ** 2 <= r * r
 
 
-def render(size: int) -> bytes:
+def render(size: int, maskable: bool = False) -> bytes:
+    """PNG of the mark. `maskable`: full-bleed square with the line inside the 80% safe zone
+    (Android crops it to its own shape)."""
     ss = 4  # supersampling
     rows = []
-    radius = size * 8 / 32
+    radius = 0 if maskable else size * 8 / 32
+    zoom = 0.75 if maskable else 1.0
     for y in range(size):
         row = bytearray([0])  # PNG filter: none
         for x in range(size):
@@ -45,10 +50,10 @@ def render(size: int) -> bytes:
             for sy in range(ss):
                 for sx in range(ss):
                     px, py = x + (sx + 0.5) / ss, y + (sy + 0.5) / ss
-                    if not _inside_rounded(px, py, size, radius):
+                    if radius and not _inside_rounded(px, py, size, radius):
                         continue
                     cov_bg += 1
-                    ux, uy = px / size * 32, py / size * 32
+                    ux, uy = 16 + (px / size * 32 - 16) / zoom, 16 + (py / size * 32 - 16) / zoom
                     d = min(_seg_dist(ux, uy, *a, *b) for line in LINES for a, b in zip(line, line[1:]))
                     if d <= STROKE / 2:
                         cov_fg += 1
@@ -77,6 +82,12 @@ def main() -> None:
         offset += len(img)
     OUT.write_bytes(header + entries + b"".join(images))
     print(f"wrote {OUT} ({OUT.stat().st_size} bytes)")
+    MOBILE.mkdir(parents=True, exist_ok=True)
+    for name, size, maskable in (("icon-192.png", 192, False), ("icon-512.png", 512, False),
+                                 ("icon-maskable-512.png", 512, True)):
+        (MOBILE / name).write_bytes(render(size, maskable))
+        print(f"wrote {MOBILE / name}")
+    (MOBILE / "icon.svg").write_text((ROOT / "mywealth" / "web" / "icon.svg").read_text(encoding="utf-8"), encoding="utf-8")
 
 
 if __name__ == "__main__":

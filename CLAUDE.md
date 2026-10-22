@@ -22,13 +22,16 @@ Personal desktop app (local web server + browser UI) to track bank accounts, exp
 - `uv run pytest` — run tests
 - The real app (`uv run mywealth`, `mywealth-gui`, the Start-menu shortcut) is run by the user, not by Claude.
 - `uv run mywealth --install-shortcuts` / `--uninstall-shortcuts` — Start menu and desktop shortcuts (user only, see SPEC §13)
-- `uv run python tools/make_icon.py` — regenerate `mywealth/web/icon.ico` from the mark in `icon.svg`
+- `uv run python tools/make_icon.py` — regenerate `mywealth/web/icon.ico` and the PWA icons in `mobile/icons/` from the mark in `icon.svg` (slow: a few minutes)
+- `node --test tests/js/*.test.mjs` — JS tests of the PWA and of the desktop decryption (also run by `uv run pytest` when Node is installed)
+- `node tools/make_mobile_vector.mjs` — regenerate the shared test vector `tests/vectors/mobile-v1.*` (published test key only)
+- PWA checks: serve `mobile/` locally (`uv run python -m http.server 8792 --bind 127.0.0.1 --directory mobile`) and pair it with a `--demo` instance; never with real data.
 
 ## Tech constraints
 
 - Python ≥ 3.10, managed with `uv`.
 - Backend: standard-library HTTP server with a JSON API; `sqlite3` from the stdlib for storage.
-- Market data: `yfinance` + `pandas`. **`numpy` is pinned to `2.1.3`**: newer versions are blocked by AppLocker/WDAC on the user's machine. Do not add other dependencies with compiled extensions without asking first (they may be blocked too).
+- QR codes: `segno` (pure Python). Market data: `yfinance` + `pandas`. **`numpy` is pinned to `2.1.3`**: newer versions are blocked by AppLocker/WDAC on the user's machine. Do not add other dependencies with compiled extensions without asking first (they may be blocked too).
 - Frontend: vanilla HTML/CSS/JS, SVG charts, no framework, no build step. Colors only via CSS variables; light and dark themes.
 - Reference project: https://github.com/cricci3/PortfolioTracker (same author, MIT). Investment logic and UI (Yahoo access, FX, XIRR, Modified Dietz, charts) should be ported from there and adapted, not added as a dependency.
 

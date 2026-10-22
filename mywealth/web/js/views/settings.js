@@ -369,6 +369,7 @@ async function renderMobile() {
 }
 
 const QR_SECONDS = 120;
+const MOBILE_URL = "https://cricci3.github.io/myWealth/"; // GitHub Pages, .github/workflows/pages.yml
 
 /** QR with the key and the configuration (accounts, categories); hidden after 2 minutes. */
 async function pairDialog(regenerate) {
@@ -383,7 +384,7 @@ async function pairDialog(regenerate) {
     render(body, { close }) {
       const n = data.qr.length;
       body.innerHTML = `
-        <p class="dlg-note">Sul telefono apri l'app myWealth e tocca <b>Abbina</b>, poi inquadra ${n > 1 ? `i ${n} codici, uno alla volta e nell'ordine` : "il codice"}.
+        <p class="dlg-note">Sul telefono apri l'app myWealth (la prima volta, in Chrome: <span class="mono">${MOBILE_URL}</span>, poi menu → Installa app) e tocca <b>Inquadra il codice</b> (in Impostazioni → <b>Aggiorna configurazione</b> se è già abbinato): inquadra ${n > 1 ? `i ${n} codici, uno alla volta e nell'ordine` : "il codice"}.
           Dopo aver aggiunto o modificato conti e categorie, mostra di nuovo questo codice per aggiornare il telefono.</p>
         <p class="dlg-note warn-text">Il codice contiene la chiave che protegge i dati inviati dal telefono: non fotografarlo e non condividerlo.</p>
         <div class="qr-box">

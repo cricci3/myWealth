@@ -19,6 +19,9 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 | M10 | Impostazioni complete, rifiniture, README | ✅ Fatta | `e524d7c` |
 | M11 | (Opzionale) PIN, mappature CSV per banche, import da PortfolioTracker | 🟡 Parziale | `0e1fbf7` |
 | M11 | (Opzionale) Cifratura dei dati e dell'archivio | ⏸️ Rimandata | — |
+| M12 | Finestra app in Brave (poi Edge, poi browser predefinito) | ✅ Fatta | `f13189f` |
+| M13 | Smartphone, lato desktop: abbinamento QR, cartella in arrivo, import cifrato con deduplica | ✅ Fatta | `f080941` |
+| M14 | App smartphone (PWA): inserimento offline, export cifrato, condivisione, GitHub Pages | ✅ Fatta | — |
 
 ## Da fare
 
@@ -34,6 +37,16 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 - [ ] Chiusura automatica dopo N minuti senza finestre aperte.
 - [ ] Avvio con Windows (collegamento in Esecuzione automatica).
 - [ ] Trasferimento su un altro PC: "Esporta tutto" → "Importa tutto" dalla schermata di primo avvio.
+- [ ] Finestra app in Brave (anche con Shields attivo) e ripiego su Edge se Brave non c'è.
+- [ ] Cartella Download reale come cartella in arrivo (anche se spostata su un altro disco).
+
+### Smartphone (da verificare sul telefono reale)
+- [ ] Attivare GitHub Pages: repository → Settings → Pages → Source: **GitHub Actions**; poi push di `mobile/`.
+- [ ] Installazione della PWA da Chrome Android e uso completamente offline (modalità aereo).
+- [ ] Scansione del QR con la fotocamera (`BarcodeDetector`), anche con configurazione in più QR.
+- [ ] "Esporta e invia" → Gmail con allegato `.txt`; download dell'allegato sul PC e import dalla cartella Download.
+- [ ] Persistenza dei dati dopo riavvio del telefono (`navigator.storage.persist()`); avviso dopo 7 giorni senza export.
+- [ ] Banner "Aggiornamento disponibile" dopo una nuova pubblicazione.
 
 ### Miglioramenti noti
 - [ ] Import estratto conto: nell'anteprima i numeri di riga si riferiscono al CSV convertito, non alle righe del file della banca.
