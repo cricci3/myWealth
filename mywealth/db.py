@@ -207,6 +207,17 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        6,
+        """
+        -- Entries imported from the smartphone (SPEC §16.6): the UUID the phone gives each
+        -- entry, so a file sent twice (or two files sharing entries) creates no duplicates.
+        CREATE TABLE mobile_imported_ids (
+            id          TEXT PRIMARY KEY,
+            imported_at TEXT NOT NULL
+        );
+        """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]

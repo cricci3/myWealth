@@ -139,6 +139,34 @@ function mount(el) {
       </div>
     </div>
 
+    <h2 class="section-title">Smartphone</h2>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name" id="mobile-state">Nessuno smartphone abbinato</div>
+          <div class="setting-hint">Registra spese, entrate e trasferimenti dal telefono, anche senza rete: l'app myWealth per smartphone li invia cifrati in un file che importi qui.</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm" type="button" id="btn-pair">Abbina smartphone</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="btn-rekey" hidden>Rigenera chiave</button>
+        </div>
+      </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Cartella in arrivo</div>
+          <div class="setting-hint" id="inbox-hint">myWealth cerca qui i file arrivati dal telefono (<span class="mono">mywealth-….txt</span>); gli altri file non vengono mai letti.</div>
+        </div>
+        <label class="switch"><input type="checkbox" data-setting="mobile_inbox_enabled" aria-label="Cerca i file nella cartella in arrivo"><span></span></label>
+      </div>
+      <div class="setting" id="inbox-dir-row">
+        <div>
+          <div class="setting-name">Percorso della cartella</div>
+          <div class="setting-hint">Lascia vuoto per usare la cartella Download.</div>
+        </div>
+        <input class="input" id="inbox-dir" aria-label="Percorso della cartella in arrivo" spellcheck="false">
+      </div>
+    </div>
+
     <h2 class="section-title">Avvio e finestra</h2>
     <div class="card settings">
       <div class="setting">
@@ -175,6 +203,23 @@ function mount(el) {
   $("#btn-new-cat", el).addEventListener("click", () => categoryDialog());
   $("#btn-fx-manual", el).addEventListener("click", () => manualRateDialog());
   $("#btn-pin", el).addEventListener("click", () => pinDialog(true));
+  $("#btn-pair", el).addEventListener("click", () => pairDialog(false));
+  $("#btn-rekey", el).addEventListener("click", async () => {
+    const ok = await confirmDialog("Rigenera chiave",
+      "Lo smartphone abbinato non potrà più inviare file finché non lo abbini di nuovo, e i file già cifrati con la vecchia chiave non si potranno importare. Usala se hai perso il telefono.",
+      { confirmLabel: "Rigenera" });
+    if (ok) pairDialog(true);
+  });
+  $("#inbox-dir", el).addEventListener("change", async (ev) => {
+    try {
+      state.settings = await api("PUT", "/api/settings", { mobile_inbox_dir: ev.target.value });
+      toast("Cartella salvata");
+      renderMobile();
+    } catch (e) {
+      ev.target.value = state.settings.mobile_inbox_dir;
+      toast(e.message, true);
+    }
+  });
   $("#btn-pin-off", el).addEventListener("click", () => pinDialog(false));
   $("#btn-lock", el).addEventListener("click", () => api("POST", "/api/lock").then(() => location.reload()));
   $("#btn-export-all", el).addEventListener("click", () => exportAll().catch((e) => toast(e.message, true)));
@@ -261,6 +306,7 @@ async function show() {
   $$("[data-setting-num]", root).forEach((input) => { input.value = state.settings[input.dataset.settingNum]; });
   renderShortcuts();
   renderPin();
+  renderMobile();
   $("#tax-rate", root).value = String(state.settings.interest_tax_rate ?? "").replace(".", ",");
   await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
   await renderFx();
@@ -304,6 +350,81 @@ function pinDialog(setting) {
       return true;
     },
   });
+}
+
+// -------------------------------------------------------------- smartphone --
+async function renderMobile() {
+  let s;
+  try { s = await api("GET", "/api/mobile"); } catch (e) { return; }
+  $("#mobile-state", root).textContent = s.paired ? `Smartphone abbinato il ${dateFmt(s.created)}` : "Nessuno smartphone abbinato";
+  $("#btn-pair", root).textContent = s.paired ? "Mostra QR configurazione" : "Abbina smartphone";
+  $("#btn-rekey", root).hidden = !s.paired;
+  $("#inbox-dir-row", root).hidden = !s.inbox.enabled;
+  const dir = $("#inbox-dir", root);
+  dir.value = state.settings.mobile_inbox_dir || "";
+  dir.placeholder = s.inbox.custom ? "" : s.inbox.dir;
+  $("#inbox-hint", root).innerHTML = s.inbox.enabled
+    ? `All'avvio e ogni 2 minuti myWealth cerca in <span class="mono">${esc(s.inbox.dir)}</span> i file arrivati dal telefono (<span class="mono">mywealth-….txt</span>); gli altri file non vengono mai letti.${s.inbox.exists ? "" : ' <span class="warn-text">La cartella non esiste.</span>'}`
+    : "Disattivata: importa i file dal telefono da Operazioni → Da smartphone.";
+}
+
+const QR_SECONDS = 120;
+
+/** QR with the key and the configuration (accounts, categories); hidden after 2 minutes. */
+async function pairDialog(regenerate) {
+  let data;
+  try { data = await api("POST", "/api/mobile/pair", { regenerate }); } catch (e) { toast(e.message, true); return; }
+  renderMobile();
+  if (regenerate) toast("Nuova chiave creata: abbina di nuovo lo smartphone");
+  let timer;
+  await openDialog({
+    title: "Abbina smartphone",
+    cancelLabel: "Chiudi",
+    render(body, { close }) {
+      const n = data.qr.length;
+      body.innerHTML = `
+        <p class="dlg-note">Sul telefono apri l'app myWealth e tocca <b>Abbina</b>, poi inquadra ${n > 1 ? `i ${n} codici, uno alla volta e nell'ordine` : "il codice"}.
+          Dopo aver aggiunto o modificato conti e categorie, mostra di nuovo questo codice per aggiornare il telefono.</p>
+        <p class="dlg-note warn-text">Il codice contiene la chiave che protegge i dati inviati dal telefono: non fotografarlo e non condividerlo.</p>
+        <div class="qr-box">
+          <div class="qr-code" data-qr></div>
+          <div class="qr-nav" ${n > 1 ? "" : "hidden"}>
+            <button type="button" class="btn btn-sm" data-prev>Precedente</button>
+            <span data-pos></span>
+            <button type="button" class="btn btn-sm" data-next>Successivo</button>
+          </div>
+          <span class="muted small" data-left></span>
+        </div>
+        <details class="qr-details">
+          <summary class="link">Il telefono non ha la fotocamera? Copia il codice come testo</summary>
+          <textarea class="input qr-text" readonly data-text></textarea>
+          <button type="button" class="btn btn-sm" data-copy>Copia</button>
+        </details>`;
+      let i = 0;
+      const show = () => {
+        $("[data-qr]", body).innerHTML = data.qr[i];
+        $("[data-pos]", body).textContent = `${i + 1} di ${n}`;
+        $("[data-prev]", body).disabled = i === 0;
+        $("[data-next]", body).disabled = i === n - 1;
+      };
+      $("[data-prev]", body).addEventListener("click", () => { i = Math.max(0, i - 1); show(); });
+      $("[data-next]", body).addEventListener("click", () => { i = Math.min(n - 1, i + 1); show(); });
+      $("[data-text]", body).value = data.text;
+      $("[data-copy]", body).addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(data.text); toast("Copiato: incollalo nell'app sul telefono"); } catch (e) { toast("Copia non riuscita: seleziona il testo e copialo.", true); }
+      });
+      show();
+      const end = Date.now() + QR_SECONDS * 1000;
+      const tick = () => {
+        const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+        $("[data-left]", body).textContent = `Il codice si nasconde tra ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+        if (!left) close();
+      };
+      tick();
+      timer = setInterval(tick, 1000);
+    },
+  });
+  clearInterval(timer);
 }
 
 const SHORTCUTS = [

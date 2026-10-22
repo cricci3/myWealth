@@ -5,6 +5,7 @@ import {
 } from "../core.js";
 
 import { bankImportDialog, csvImportDialog } from "../csvimport.js";
+import { mobileImportDialog } from "../mobileimport.js";
 
 const KIND_LABELS = { expense: "Spesa", income: "Entrata", transfer: "Trasferimento", interest: "Interessi", fee: "Commissione", buy: "Acquisto", sell: "Vendita" };
 const PAGE = 30;
@@ -22,6 +23,7 @@ function mount(el) {
       <span class="spacer"></span>
       <button class="btn" type="button" id="btn-bank">${ICON.upload}Estratto conto</button>
       <button class="btn" type="button" id="btn-import">${ICON.upload}Importa CSV</button>
+      <button class="btn" type="button" id="btn-mobile">${ICON.phone}Da smartphone</button>
     </div>
     <details class="filters-wrap" id="filters-wrap">
     <summary class="btn btn-sm">Filtri</summary>
@@ -47,6 +49,7 @@ function mount(el) {
   $$("[data-new]", el).forEach((b) => b.addEventListener("click", () => transactionDialog(b.dataset.new)));
   $("#btn-import", el).addEventListener("click", () => csvImportDialog());
   $("#btn-bank", el).addEventListener("click", () => bankImportDialog());
+  $("#btn-mobile", el).addEventListener("click", () => mobileImportDialog({ inbox: true }));
   const form = $("#tx-filters", el);
   let timer;
   form.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(applyFilters, 250); });

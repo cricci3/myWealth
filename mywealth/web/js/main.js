@@ -7,6 +7,7 @@ import investments from "./views/investments.js";
 import analytics from "./views/analytics.js";
 import exportView from "./views/export.js";
 import { importAll } from "./transfer.js";
+import { watchInbox } from "./mobileimport.js";
 
 const VIEWS = {
   home: { title: "Home", view: home },
@@ -170,6 +171,7 @@ async function init() {
   watchFx();
   onboarding();
   heartbeat();
+  watchInbox();
 }
 
 // Tells the server a window is open: without heartbeats it stops after the idle time.

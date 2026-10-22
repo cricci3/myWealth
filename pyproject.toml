@@ -11,6 +11,7 @@ dependencies = [
     # Pinned: newer numpy releases are blocked by AppLocker/WDAC on the user's machine
     # (DLL "blocked by an application control policy").
     "numpy==2.1.3",
+    "segno>=1.6",
 ]
 
 [project.scripts]

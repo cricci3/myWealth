@@ -9,6 +9,10 @@ Import format, one operation per row, with a header:
   currencies, importo_destinazione (received);
 - extra columns are ignored, so an operations export can be imported again.
 The import runs in one transaction: either every row is saved or none.
+
+Files from the smartphone (SPEC §16) add an `id` column (UUID given by the phone) and
+`creato_il`: with `track_ids` rows whose id was already imported are skipped, and the ids
+of the imported rows are recorded, so sending the same entries twice creates no duplicates.
 """
 
 from __future__ import annotations
@@ -17,10 +21,11 @@ import csv
 import io
 import json
 import sqlite3
+import uuid
 from datetime import date
 
 from . import analytics, investments, money, transactions
-from .db import Database
+from .db import Database, now_iso
 from .errors import ValidationError
 
 COLUMNS = ["data", "tipo", "conto_origine", "conto_destinazione", "importo", "importo_destinazione", "categoria",
@@ -142,9 +147,41 @@ def _existing_keys(conn: sqlite3.Connection) -> set:
     return keys
 
 
-def _process(conn: sqlite3.Connection, text: str, create_categories: bool) -> dict:
+def _iso_or_none(text) -> str | None:
+    try:
+        return money.parse_date(text).isoformat()
+    except ValidationError:
+        return None
+
+
+def _entry_id(row: dict) -> tuple[str | None, str | None]:
+    """(normalized UUID, error) of a smartphone row."""
+    raw = row.get("id", "")
+    if not raw:
+        return None, "id mancante"
+    try:
+        return str(uuid.UUID(raw)), None
+    except ValueError:
+        return None, f"id '{raw[:40]}' non valido"
+
+
+def _process(conn: sqlite3.Connection, text: str, create_categories: bool, track_ids: bool = False) -> dict:
     """Validate every row inside the given (to be committed or rolled back) transaction."""
     rows = _rows(text)
+    imported_ids = {r[0] for r in conn.execute("SELECT id FROM mobile_imported_ids")} if track_ids else set()
+    skipped = []
+    if track_ids:
+        kept = []
+        for r in rows:
+            rid, err = _entry_id(r)
+            r["_id"], r["_id_error"] = rid, err
+            if rid and rid in imported_ids:
+                skipped.append(r)
+            else:
+                kept.append(r)
+                if rid:
+                    imported_ids.add(rid)  # a repeated id later in the same file is skipped too
+        rows = kept
     accs, cats = _lookup(conn)
     new_cats: set = set()
     converted = [(_convert(r, accs, cats, new_cats), r) for r in rows]
@@ -157,6 +194,8 @@ def _process(conn: sqlite3.Connection, text: str, create_categories: bool) -> di
     report = []
     for (payload, errors), raw in converted:
         warnings = []
+        if raw.get("_id_error"):
+            errors.append(raw["_id_error"])
         new_cat = payload.pop("_new_category", None)
         if new_cat:
             if create_categories:
@@ -182,6 +221,8 @@ def _process(conn: sqlite3.Connection, text: str, create_categories: bool) -> di
             elif key in seen:
                 warnings.append("possibile duplicato di un'altra riga del file")
             seen.add(key)
+            if raw.get("_id"):
+                conn.execute("INSERT INTO mobile_imported_ids (id, imported_at) VALUES (?, ?)", (raw["_id"], now_iso()))
         report.append({
             "line": raw["_line"], "date": payload.get("date"), "kind": payload.get("kind"),
             "description": raw.get("descrizione", ""), "amount": raw.get("importo", ""),
@@ -189,10 +230,20 @@ def _process(conn: sqlite3.Connection, text: str, create_categories: bool) -> di
             "to_account": raw.get("conto_destinazione") if payload.get("kind") == "transfer" else None,
             "category": raw.get("categoria", ""), "errors": errors, "warnings": warnings,
         })
+    for raw in skipped:
+        report.append({
+            "line": raw["_line"], "date": _iso_or_none(raw.get("data")), "kind": KINDS.get(raw.get("tipo", "").lower()),
+            "description": raw.get("descrizione", ""), "amount": raw.get("importo", ""),
+            "account": raw.get("conto_origine") or raw.get("conto_destinazione"),
+            "to_account": raw.get("conto_destinazione") if raw.get("conto_origine") and raw.get("conto_destinazione") else None,
+            "category": raw.get("categoria", ""), "errors": [], "warnings": [], "skipped": "già importata",
+        })
+    report.sort(key=lambda r: r["line"])
     return {
         "rows": report,
         "total": len(report),
-        "valid": sum(1 for r in report if not r["errors"]),
+        "skipped": len(skipped),
+        "valid": sum(1 for r in report if not r["errors"] and not r.get("skipped")),
         "errors": sum(1 for r in report if r["errors"]),
         "duplicates": sum(1 for r in report if r["warnings"]),
         "new_categories": [{"name": n, "nature": k} for n, k in sorted(new_cats)],
@@ -203,23 +254,23 @@ class _Rollback(Exception):
     pass
 
 
-def preview(db: Database, text: str, create_categories: bool = False) -> dict:
+def preview(db: Database, text: str, create_categories: bool = False, track_ids: bool = False) -> dict:
     """Dry run: everything is validated (and inserted) inside a transaction that is
     always rolled back."""
     result: dict = {}
     try:
         with db.transaction() as conn:
-            result = _process(conn, text, create_categories)
+            result = _process(conn, text, create_categories, track_ids)
             raise _Rollback
     except _Rollback:
         pass
     return result
 
 
-def import_csv(db: Database, text: str, create_categories: bool = False) -> dict:
+def import_csv(db: Database, text: str, create_categories: bool = False, track_ids: bool = False) -> dict:
     """All rows or none: any invalid row aborts the whole import."""
     with db.transaction() as conn:
-        result = _process(conn, text, create_categories)
+        result = _process(conn, text, create_categories, track_ids)
         if result["errors"]:
             bad = next(r for r in result["rows"] if r["errors"])
             raise ValidationError(

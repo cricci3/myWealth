@@ -6,23 +6,28 @@ import {
 
 const KINDS = { expense: "Spesa", income: "Entrata", transfer: "Trasferimento" };
 
-function previewHtml(r) {
+/** Preview table of an import; `lineLabel` turns a CSV line number into the text shown. */
+export function previewHtml(r, lineLabel = (line) => line) {
   const newCats = r.new_categories.length
     ? `<p class="small">Categorie non trovate: ${r.new_categories.map((c) => `<b>${esc(c.name)}</b>`).join(", ")} — spunta “Crea le categorie mancanti” per aggiungerle.</p>` : "";
+  const outcome = (x) => (x.errors.length ? `<span class="neg">${esc(x.errors.join("; "))}</span>`
+    : x.skipped ? `<span class="muted">${esc(x.skipped)}</span>`
+    : x.warnings.length ? `<span class="warn-text">${esc(x.warnings.join("; "))}</span>` : '<span class="pos">ok</span>');
   return `
     <div class="import-summary">
       <span><b>${r.total}</b> righe</span><span class="pos"><b>${r.valid}</b> valide</span>
       <span class="${r.errors ? "neg" : "muted"}"><b>${r.errors}</b> con errori</span>
       <span class="${r.duplicates ? "warn-text" : "muted"}"><b>${r.duplicates}</b> possibili duplicati</span>
+      ${r.skipped !== undefined ? `<span class="muted"><b>${r.skipped}</b> già importate</span>` : ""}
     </div>
     ${newCats}
     <div class="table-card preview-table"><div><table class="table compact">
       <thead><tr><th>Riga</th><th>Data</th><th>Tipo</th><th>Conto</th><th class="num">Importo</th><th>Categoria</th><th>Descrizione</th><th>Esito</th></tr></thead>
-      <tbody>${r.rows.map((x) => `<tr class="${x.errors.length ? "row-error" : x.warnings.length ? "row-warn" : ""}">
-        <td>${x.line}</td><td class="nowrap">${x.date ? dateFmt(x.date) : "—"}</td><td>${KINDS[x.kind] || "—"}</td>
+      <tbody>${r.rows.map((x) => `<tr class="${x.errors.length ? "row-error" : x.skipped ? "row-skipped" : x.warnings.length ? "row-warn" : ""}">
+        <td class="nowrap">${esc(lineLabel(x.line))}</td><td class="nowrap">${x.date ? dateFmt(x.date) : "—"}</td><td>${KINDS[x.kind] || "—"}</td>
         <td>${esc(x.account || "")}${x.to_account ? ` → ${esc(x.to_account)}` : ""}</td><td class="num">${esc(x.amount)}</td>
         <td>${esc(x.category)}</td><td>${esc(x.description)}</td>
-        <td>${x.errors.length ? `<span class="neg">${esc(x.errors.join("; "))}</span>` : x.warnings.length ? `<span class="warn-text">${esc(x.warnings.join("; "))}</span>` : '<span class="pos">ok</span>'}</td></tr>`).join("")}
+        <td>${outcome(x)}</td></tr>`).join("")}
       </tbody></table></div></div>`;
 }
 

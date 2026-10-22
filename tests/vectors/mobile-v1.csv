@@ -1,0 +1,4 @@
+data;tipo;conto_origine;conto_destinazione;importo;importo_destinazione;categoria;descrizione;id;creato_il
+2026-01-14;spesa;Conto corrente;;12,5;;Spesa alimentare;"Panetteria ""Da Mario""; centro";5b0c6f2e-4a9d-4c1e-9b7a-1f2e3d4c5b6a;2026-01-14T08:15:00.000Z
+2026-01-15;trasferimento;Conto corrente;Conto svizzero;100;94,2;Trasferimento;Cambio in CHF €;0d9e8f7a-6b5c-4d3e-8f2a-1b0c9d8e7f6a;2026-01-15T09:00:00.000Z
+2026-01-15;entrata;;Conto corrente;1234,56;;Stipendio;;c3d2e1f0-a9b8-4c7d-8e6f-5a4b3c2d1e0f;2026-01-15T09:30:00.000Z

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .db import Database
 from .errors import ValidationError
 
@@ -18,10 +20,13 @@ DEFAULTS: dict = {
     "app_browser": "auto",  # app window: auto (Brave, then Edge) | brave | edge | default (browser tab)
     "idle_minutes": 5,  # stop the server when no window has been open for this long (0 = never)
     "port": 8777,  # local port (the next free one is used if busy)
+    "mobile_inbox_enabled": True,  # look for files from the smartphone in the inbox folder
+    "mobile_inbox_dir": "",  # inbox folder; empty = the user's Downloads
 }
 
 # Settings tied to this computer: never taken from an imported archive.
-MACHINE_KEYS = ("port", "app_browser", "launch_mode", "idle_minutes", "autostart")
+MACHINE_KEYS = ("port", "app_browser", "launch_mode", "idle_minutes", "autostart", "mobile_inbox_enabled",
+                "mobile_inbox_dir")
 
 _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
@@ -75,6 +80,13 @@ def _check(key: str, value):
         lo, hi = _RANGES.get(key, (None, None))
         if (lo is not None and value < lo) or (hi is not None and value > hi):
             raise SettingsError(f"'{key}' deve essere tra {lo} e {hi}.")
+        return value
+    if key == "mobile_inbox_dir":
+        if not isinstance(value, str) or len(value) > 1000 or "\0" in value:
+            raise SettingsError("Cartella non valida.")
+        value = value.strip()
+        if value and not Path(value).expanduser().is_absolute():
+            raise SettingsError("Indica il percorso completo della cartella.")
         return value
     if isinstance(default, str):
         if not isinstance(value, str) or len(value) > 200:

@@ -573,3 +573,77 @@ def change_pin(ctx, req: Request):
     security.set_pin(ctx.db, str(body.get("new") or ""), body.get("current"))
     ctx.gate.unlocked = True  # who set it is the one using the app now
     return {"pin_set": security.is_set(ctx.db)}
+
+
+# ----------------------------------------------------------------- smartphone
+
+
+def _inbox(ctx):
+    from . import mobile
+
+    return mobile.inbox_dir(settings.load(ctx.db), ctx.data_dir, ctx.demo)
+
+
+@routes.get("mobile")
+def mobile_status(ctx, req: Request):
+    from . import mobile
+
+    prefs = settings.load(ctx.db)
+    folder = mobile.inbox_dir({**prefs, "mobile_inbox_enabled": True}, ctx.data_dir, ctx.demo)
+    return {**mobile.status(ctx.data_dir), "inbox": {
+        "enabled": prefs["mobile_inbox_enabled"], "dir": str(folder), "custom": bool(prefs["mobile_inbox_dir"]),
+        "exists": folder.is_dir(),
+    }}
+
+
+@routes.post("mobile/pair")
+def mobile_pair(ctx, req: Request):
+    """QR with the key (created on the first pairing) and the current configuration."""
+    from . import mobile
+
+    return mobile.pairing(ctx.db, ctx.data_dir, regenerate=bool(req.body().get("regenerate")))
+
+
+@routes.get("mobile/key")
+def mobile_key(ctx, req: Request):
+    """The key, for the page to decrypt the files with the Web Crypto API (see mobile.py)."""
+    from . import mobile
+    from .errors import NotFoundError
+
+    key = mobile.load_key(ctx.data_dir)
+    if key is None:
+        raise NotFoundError("Nessuno smartphone abbinato: abbinalo dalle Impostazioni.")
+    return {"key": key["key"], "kid": key["kid"]}
+
+
+@routes.get("mobile/inbox")
+def mobile_inbox(ctx, req: Request):
+    from . import mobile
+
+    folder = _inbox(ctx)
+    return {"enabled": folder is not None, "dir": folder and str(folder), "files": mobile.scan_inbox(folder)}
+
+
+@routes.get("mobile/inbox/file")
+def mobile_inbox_file(ctx, req: Request):
+    from . import mobile
+
+    name = req.q("name") or ""
+    return {"name": name, "content": mobile.read_inbox_file(_inbox(ctx), name)}
+
+
+@routes.post("mobile/preview")
+def mobile_preview(ctx, req: Request):
+    """The decrypted CSV (from the page): same preview as the CSV import, plus `id` dedup."""
+    return csvio.preview(ctx.db, csvio.decode(req.raw()), req.q("create_categories") == "1", track_ids=True)
+
+
+@routes.post("mobile/import")
+def mobile_import(ctx, req: Request):
+    """Import, then delete the inbox files it came from (only after a successful import)."""
+    from . import mobile
+
+    result = csvio.import_csv(ctx.db, csvio.decode(req.raw()), req.q("create_categories") == "1", track_ids=True)
+    names = [n for n in (req.q("files") or "").split("/") if n]
+    result["deleted"] = mobile.delete_inbox_files(_inbox(ctx), names) if names else []
+    return result
