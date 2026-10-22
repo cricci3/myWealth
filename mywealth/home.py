@@ -91,7 +91,7 @@ def _cash_series(conn: sqlite3.Connection, acc: sqlite3.Row, start: date, end: d
     return out
 
 
-def history(db: Database, range_key: str = "90", today: date | None = None) -> dict:
+def history(db: Database, range_key: str = "90", today: date | None = None, max_points: int = MAX_POINTS) -> dict:
     """Daily value in EUR of every account and of the total, rebuilt from the operations
     (and, for investment accounts, from the cached historical prices)."""
     today = today or date.today()
@@ -143,7 +143,7 @@ def history(db: Database, range_key: str = "90", today: date | None = None) -> d
                 continue
             lines.append({"id": acc["id"], "name": acc["name"], "currency": cur, "archived": bool(acc["archived"]),
                           "value": values})
-    idx = investments._downsample(all_days, MAX_POINTS)
+    idx = investments._downsample(all_days, max_points)
     rnd = lambda v: None if v is None else round(float(v), 2)  # noqa: E731
     return {
         "range": range_key,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, categories, fx, home, investments, money, savings, settings, transactions
+from . import __version__, accounts, analytics, categories, fx, home, investments, money, savings, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -306,3 +306,26 @@ def home_summary(ctx, req: Request):
 @routes.get("home/history")
 def home_history(ctx, req: Request):
     return home.history(ctx.db, req.q("range") or settings.get(ctx.db, "home_range"))
+
+
+# ------------------------------------------------------------------- analytics
+
+
+@routes.get("analytics/categories")
+def analytics_categories(ctx, req: Request):
+    return analytics.expenses_by_category(ctx.db, req.q("from"), req.q("to"), req.q("account"))
+
+
+@routes.get("analytics/monthly")
+def analytics_monthly(ctx, req: Request):
+    return analytics.monthly(ctx.db, year=req.q_int("year"), months=req.q_int("months", 12))
+
+
+@routes.get("analytics/accounts")
+def analytics_accounts(ctx, req: Request):
+    return analytics.account_report(ctx.db, req.q("from"), req.q("to"))
+
+
+@routes.get("analytics/networth")
+def analytics_networth(ctx, req: Request):
+    return analytics.net_worth(ctx.db)

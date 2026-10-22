@@ -229,7 +229,7 @@ export function drawBars(el, data, opts = {}) {
     hl.setAttribute("width", band); hl.setAttribute("height", H - pad.t - pad.b);
     const label = opts.formatLabel ? opts.formatLabel(data.labels[i], true) : data.labels[i];
     tip.innerHTML = `<div class="d">${esc(label)}</div>` + data.series.map((s) =>
-      `<div class="r ra"><span><i style="background:${s.color}"></i><span class="nm">${esc(s.name)}</span></span><span>${s.values[i] == null ? "—" : money(s.values[i], cur)}</span></div>`).join("") +
+      `<div class="r ra"><span><i style="background:${s.color}"></i><span class="nm">${esc(s.name)}</span></span><span>${s.values[i] == null ? "—" : opts.valueFormat ? opts.valueFormat(s.values[i]) : money(s.values[i], cur)}</span></div>`).join("") +
       (opts.extraTip ? opts.extraTip(i) : "");
     tip.style.display = "block";
     const left = ((pad.l + i * band + band) / W) * r.width;

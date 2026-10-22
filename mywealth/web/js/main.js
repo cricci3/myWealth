@@ -4,12 +4,13 @@ import home from "./views/home.js";
 import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
 import investments from "./views/investments.js";
+import analytics from "./views/analytics.js";
 
 const VIEWS = {
   home: { title: "Home", view: home },
   operazioni: { title: "Operazioni", view: operations },
   investimenti: { title: "Investimenti", view: investments },
-  analytics: { title: "Analytics", view: placeholder("Analisi", "In arrivo · M7") },
+  analytics: { title: "Analytics", view: analytics },
   export: { title: "Export", view: placeholder("Esporta i dati", "In arrivo · M8") },
   impostazioni: { title: "Impostazioni", view: settingsView },
 };

@@ -60,14 +60,22 @@ function applyFilters() {
 async function show() {
   await Promise.all([loadAccounts(), loadCategories()]);
   fillFilterSelects();
-  // "#operazioni/conto/<id>" (from a Home card) opens the list filtered on that account
-  const m = /^#operazioni\/conto\/(\d+)/.exec(location.hash);
+  // "#operazioni/conto/<id>" (Home cards) or "#operazioni/categoria/<id>/<from>/<to>" (Analytics)
+  // open the list already filtered
+  const m = /^#operazioni\/(conto|categoria)\/(\d+)(?:\/([\d-]{10})\/([\d-]{10}))?/.exec(location.hash);
   if (m) {
     const form = $("#tx-filters", root);
     form.reset();
-    form.elements.account.value = m[1];
+    view.filters = {};
+    const key = m[1] === "conto" ? "account" : "category";
+    form.elements[key].value = m[2];
+    view.filters[key] = m[2];
+    if (m[3]) {
+      form.elements.from.value = view.filters.from = m[3];
+      form.elements.to.value = view.filters.to = m[4];
+    }
+    $("#filters-wrap", root).open = true;
     history.replaceState(null, "", "#operazioni");
-    view.filters = { account: m[1] };
   }
   await load(false);
 }
