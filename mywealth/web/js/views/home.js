@@ -1,16 +1,29 @@
-/* Home: accounts table (M1). */
+/* Home: net worth, account cards, history chart, accounts table. */
 import {
   $, $$, api, changed, confirmDialog, dateFmt, esc, formData, ICON, inputNum, loadAccounts, loadRates, money, num,
-  openDialog, options, rateNote, state, toast, toEur, todayISO,
+  openDialog, options, rateNote, state, store, toast, toEur, todayISO,
 } from "../core.js";
+import { colorVar, drawChart } from "../charts.js";
 import { manualRateDialog } from "./settings.js";
 import { savingsDialog } from "./savings.js";
 
 let root;
+const view = { summary: null, history: null, range: null };
+const RANGES = [["30", "30 g"], ["60", "60 g"], ["90", "90 g"], ["max", "Max"]];
 
 function mount(el) {
   root = el;
   el.innerHTML = `
+    <div class="card hero" id="hero"></div>
+    <div class="acc-cards" id="acc-cards"></div>
+    <div class="card chart-card" id="home-chart-card">
+      <div class="chart-head">
+        <div><h2>Andamento in EUR</h2><div class="muted small" id="home-chart-note">Saldo di ogni conto e totale, al cambio di ogni giorno</div></div>
+        <div class="segmented" id="home-range">${RANGES.map(([v, l]) => `<button type="button" data-range="${v}">${l}</button>`).join("")}</div>
+      </div>
+      <div class="chart" id="home-chart"></div>
+      <div class="series-toggles" id="home-toggles"></div>
+    </div>
     <div class="section-head">
       <h2 class="section-title">Conti</h2>
       <div class="row-actions">
@@ -22,12 +35,102 @@ function mount(el) {
     <div class="fx-bar" id="fx-bar"></div>`;
   $("#btn-new-account", el).addEventListener("click", () => accountDialog());
   $("#show-archived", el).addEventListener("change", renderTable);
+  $$("#home-range button", el).forEach((b) => b.addEventListener("click", async () => {
+    view.range = b.dataset.range;
+    await loadHistory().catch((e) => toast(e.message, true));
+  }));
+  window.addEventListener("resize", () => { if (!root.closest(".view").hidden) drawHistory(); });
+  window.addEventListener("mw-theme", () => drawHistory());
 }
 
 async function show() {
-  await Promise.all([loadAccounts(), loadRates()]);
+  view.range = view.range || state.settings.home_range || "90";
+  const [summary] = await Promise.all([api("GET", "/api/home"), loadAccounts(), loadRates()]);
+  view.summary = summary;
+  renderHero();
+  renderCards();
   renderTable();
   renderFx();
+  await loadHistory();
+}
+
+function renderHero() {
+  const s = view.summary;
+  const multi = s.by_currency.length > 1 || (s.by_currency[0] && s.by_currency[0].currency !== "EUR");
+  $("#hero", root).innerHTML = `
+    <div>
+      <div class="label">Patrimonio totale</div>
+      <div class="hero-v fig">${money(s.total_eur, "EUR")}</div>
+      ${s.missing_rates.length ? `<div class="neg small">Esclusi i conti in ${s.missing_rates.join(", ")}: tasso di cambio mancante · <button class="link" data-manual="${s.missing_rates[0]}">inserisci</button></div>` : ""}
+    </div>
+    ${multi ? `<div class="cur-totals">${s.by_currency.map((c) => `<div><span class="label">${c.currency}</span><b class="fig">${money(c.value, c.currency)}</b></div>`).join("")}</div>` : ""}`;
+  $$("[data-manual]", $("#hero", root)).forEach((b) => b.addEventListener("click", () => manualRateDialog(b.dataset.manual)));
+}
+
+function renderCards() {
+  const box = $("#acc-cards", root);
+  const list = view.summary.accounts;
+  if (!list.length) {
+    box.innerHTML = `<div class="card empty"><h2>Benvenuto in myWealth</h2><p>Crea il primo conto con “Nuovo conto”: banca, valuta, data di apertura e saldo iniziale.</p></div>`;
+    return;
+  }
+  box.innerHTML = list.map((a, i) => {
+    const sub = a.behavior === "investment"
+      ? `liquidità ${money(a.cash, a.currency)} · investito ${money(a.positions, a.currency)}`
+      : a.behavior === "savings" && a.annual_rate != null ? `rendimento ${num(a.annual_rate, 4)}%` : esc(a.bank || a.type_name);
+    const eur = a.currency === "EUR" ? "" : a.eur != null
+      ? `<div class="acc-eur">= ${money(a.eur, "EUR")}</div>`
+      : `<div class="acc-eur neg">tasso mancante</div>`;
+    const href = a.behavior === "investment" ? "#investimenti" : `#operazioni/conto/${a.id}`;
+    return `<a class="card acc-card" href="${href}" style="--acc:${colorVar(i)}">
+      <div class="acc-name"><i></i><span>${esc(a.name)}</span><em>${esc(a.currency)}</em></div>
+      <div class="acc-v fig ${Number(a.value) < 0 ? "neg" : ""}">${money(a.value, a.currency)}</div>
+      ${eur}
+      <div class="acc-sub">${sub}</div>
+    </a>`;
+  }).join("");
+}
+
+async function loadHistory() {
+  $$("#home-range button", root).forEach((b) => b.classList.toggle("on", b.dataset.range === view.range));
+  view.history = await api("GET", `/api/home/history?range=${view.range}`);
+  drawHistory();
+}
+
+function hiddenLines() {
+  try { return new Set(JSON.parse(store("mw-home-hidden") || "[]")); } catch (e) { return new Set(); }
+}
+
+function drawHistory() {
+  const h = view.history;
+  const card = $("#home-chart-card", root);
+  if (!h || !h.dates.length) { card.hidden = true; return; }
+  card.hidden = false;
+  const order = (view.summary ? view.summary.accounts.map((a) => a.id) : []);
+  const colorOf = (id) => { const i = order.indexOf(id); return i >= 0 ? colorVar(i) : "var(--muted)"; };
+  const hide = hiddenLines();
+  const lines = h.accounts.filter((a) => !hide.has(a.id));
+  const overlays = h.accounts.length > 1 ? lines.map((a) => ({ label: a.name, color: colorOf(a.id), value: a.value })) : [];
+  drawChart($("#home-chart", root), { dates: h.dates, value: h.total }, {
+    axes: true, interactive: true, currency: "EUR", overlays, noInvested: true,
+    hideTotal: hide.has("total"), color: overlays.length ? "var(--chart-total)" : undefined,
+    labels: { value: "Totale" },
+  });
+  $("#home-chart-note", root).textContent = h.complete === false
+    ? "Alcuni giorni non hanno un tasso di cambio: quei valori sono esclusi dal totale."
+    : "Saldo di ogni conto e totale, al cambio di ogni giorno";
+  const row = $("#home-toggles", root);
+  row.hidden = h.accounts.length < 2;
+  if (h.accounts.length < 2) return;
+  const chip = (id, label, color) => `<button type="button" class="series-chip" data-id="${id}" aria-pressed="${!hide.has(id)}"><i style="background:${color}"></i>${esc(label)}</button>`;
+  row.innerHTML = chip("total", "Totale", "var(--chart-total)") + h.accounts.map((a) => chip(a.id, a.name, colorOf(a.id))).join("");
+  $$(".series-chip", row).forEach((c) => c.addEventListener("click", () => {
+    const set = hiddenLines();
+    const id = c.dataset.id === "total" ? "total" : Number(c.dataset.id);
+    if (set.has(id)) set.delete(id); else set.add(id);
+    store("mw-home-hidden", JSON.stringify([...set]));
+    drawHistory();
+  }));
 }
 
 function renderFx() {
@@ -90,7 +193,7 @@ function row(a) {
     <td>${esc(a.currency)}</td>
     <td class="hide-sm">${esc(a.type_name)}</td>
     <td class="hide-md">${dateFmt(a.opened_on)}</td>
-    <td class="num"><span class="${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}</td>
+    <td class="num"><span class="${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}${a.behavior === "investment" ? `<div class="cell-sub">liquidità</div>` : ""}</td>
     <td class="actions">
       ${a.behavior === "savings" ? `<button class="icon-btn" title="Rendimento e interessi" data-act="savings" data-id="${a.id}">${ICON.percent}</button>` : ""}
       <button class="icon-btn" title="Modifica" data-act="edit" data-id="${a.id}">${ICON.edit}</button>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, categories, fx, investments, money, savings, settings, transactions
+from . import __version__, accounts, categories, fx, home, investments, money, savings, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -293,3 +293,16 @@ def update_trade(ctx, req: Request):
 def delete_trade(ctx, req: Request):
     investments.delete_trade(ctx.db, req.params["id"])
     return {"ok": True}
+
+
+# ------------------------------------------------------------------------ home
+
+
+@routes.get("home")
+def home_summary(ctx, req: Request):
+    return home.summary(ctx.db)
+
+
+@routes.get("home/history")
+def home_history(ctx, req: Request):
+    return home.history(ctx.db, req.q("range") or settings.get(ctx.db, "home_range"))

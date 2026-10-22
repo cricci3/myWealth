@@ -11,10 +11,12 @@ DEFAULTS: dict = {
     "fx_auto_refresh": True,  # download exchange rates at startup
     "interest_tax_enabled": False,  # withholding tax on savings interest
     "interest_tax_rate": "26",  # percent, decimal text
+    "home_range": "90",  # default range of the Home chart
 }
 
 _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
+    "home_range": ("30", "60", "90", "max"),
 }
 
 # key -> (min, max) for integer settings

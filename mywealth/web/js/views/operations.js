@@ -60,6 +60,15 @@ function applyFilters() {
 async function show() {
   await Promise.all([loadAccounts(), loadCategories()]);
   fillFilterSelects();
+  // "#operazioni/conto/<id>" (from a Home card) opens the list filtered on that account
+  const m = /^#operazioni\/conto\/(\d+)/.exec(location.hash);
+  if (m) {
+    const form = $("#tx-filters", root);
+    form.reset();
+    form.elements.account.value = m[1];
+    history.replaceState(null, "", "#operazioni");
+    view.filters = { account: m[1] };
+  }
   await load(false);
 }
 

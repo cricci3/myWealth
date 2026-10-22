@@ -23,6 +23,15 @@ function mount(el) {
           <button type="button" role="radio" data-theme-choice="dark">Scuro</button>
         </div>
       </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Periodo del grafico in Home</div>
+          <div class="setting-hint">Quello mostrato all'apertura; puoi cambiarlo dalla Home in ogni momento.</div>
+        </div>
+        <select class="input auto-w" data-setting-select="home_range" aria-label="Periodo predefinito">
+          <option value="30">30 giorni</option><option value="60">60 giorni</option><option value="90">90 giorni</option><option value="max">Tutto</option>
+        </select>
+      </div>
     </div>
 
     <div class="section-head">
@@ -104,6 +113,15 @@ function mount(el) {
       toast(e.message, true);
     }
   });
+  $$("[data-setting-select]", el).forEach((sel) => sel.addEventListener("change", async () => {
+    try {
+      state.settings = await api("PUT", "/api/settings", { [sel.dataset.settingSelect]: sel.value });
+      toast("Impostazione salvata");
+    } catch (e) {
+      sel.value = state.settings[sel.dataset.settingSelect];
+      toast(e.message, true);
+    }
+  }));
   $$("[data-setting]", el).forEach((input) => input.addEventListener("change", async () => {
     try {
       state.settings = await api("PUT", "/api/settings", { [input.dataset.setting]: input.checked });
@@ -123,6 +141,7 @@ async function show() {
     b.setAttribute("aria-checked", String(on));
   });
   $$("[data-setting]", root).forEach((input) => { input.checked = !!state.settings[input.dataset.setting]; });
+  $$("[data-setting-select]", root).forEach((sel) => { sel.value = state.settings[sel.dataset.settingSelect]; });
   $("#tax-rate", root).value = String(state.settings.interest_tax_rate ?? "").replace(".", ",");
   await Promise.all([loadAccounts(), loadCategories(), loadRates()]);
   await renderFx();

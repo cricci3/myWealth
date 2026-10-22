@@ -91,12 +91,12 @@ function render() {
   const body = $("#inv-body", root);
   body.innerHTML = `
     <div class="card kpis">
-      <div class="kpi"><div class="label">Liquidità</div><div class="v num">${m(s.liquidity)}</div><div class="s">disponibile per acquisti</div></div>
-      <div class="kpi"><div class="label">Investito</div><div class="v num">${m(s.invested)}</div><div class="s">${s.asset_count} asset${s.error_count ? ` · <span class="neg">${s.error_count} senza dati</span>` : ""}</div></div>
-      <div class="kpi"><div class="label">Valore attuale</div><div class="v num ${tone(s.gain)}">${m(s.value)}</div><div class="s">totale conto ${m(s.total)}</div></div>
-      <div class="kpi"><div class="label">Guadagno</div><div class="v num ${tone(s.gain)}">${sm(s.gain)}</div><div class="s"><b class="${tone(s.return_pct)}">${pct(s.return_pct, 2)}</b>${Number(s.realized) ? ` · realizzato ${sm(s.realized)}` : " sull'investito"}</div></div>
-      <div class="kpi"><div class="label">Rendimento annuo</div><div class="v num ${tone(s.annualized_pct)}">${pct(s.annualized_pct)}</div><div class="s">XIRR (money-weighted)</div></div>
-      <div class="kpi"><div class="label">Ultimi 12 mesi</div><div class="v num ${tone(s.yoy_pct)}">${pct(s.yoy_pct)}</div><div class="s">${s.yoy_gain == null ? "serve 1 anno di storico" : `<b class="${tone(s.yoy_gain)}">${sm(s.yoy_gain)}</b> netto versamenti`}</div></div>
+      <div class="kpi"><div class="label">Liquidità</div><div class="v fig">${m(s.liquidity)}</div><div class="s">disponibile per acquisti</div></div>
+      <div class="kpi"><div class="label">Investito</div><div class="v fig">${m(s.invested)}</div><div class="s">${s.asset_count} asset${s.error_count ? ` · <span class="neg">${s.error_count} senza dati</span>` : ""}</div></div>
+      <div class="kpi"><div class="label">Valore attuale</div><div class="v fig ${tone(s.gain)}">${m(s.value)}</div><div class="s">totale conto ${m(s.total)}</div></div>
+      <div class="kpi"><div class="label">Guadagno</div><div class="v fig ${tone(s.gain)}">${sm(s.gain)}</div><div class="s"><b class="${tone(s.return_pct)}">${pct(s.return_pct, 2)}</b>${Number(s.realized) ? ` · realizzato ${sm(s.realized)}` : " sull'investito"}</div></div>
+      <div class="kpi"><div class="label">Rendimento annuo</div><div class="v fig ${tone(s.annualized_pct)}">${pct(s.annualized_pct)}</div><div class="s">XIRR (money-weighted)</div></div>
+      <div class="kpi"><div class="label">Ultimi 12 mesi</div><div class="v fig ${tone(s.yoy_pct)}">${pct(s.yoy_pct)}</div><div class="s">${s.yoy_gain == null ? "serve 1 anno di storico" : `<b class="${tone(s.yoy_gain)}">${sm(s.yoy_gain)}</b> netto versamenti`}</div></div>
     </div>
     <div class="card chart-card" id="inv-overview" ${d.series && d.series.dates.length > 1 ? "" : "hidden"}>
       <div class="chart-head">
@@ -234,7 +234,7 @@ function assetCard(a) {
     <div class="asset-mid">
       <div>
         <div class="label">Valore</div>
-        <div class="v num">${m(a.value)}</div>
+        <div class="v fig">${m(a.value)}</div>
         <div class="d ${tone(a.gain)}">${a.closed ? `realizzato ${sm(a.realized)}` : `${pct(a.return_pct, 2)} · ${sm(a.gain)}`}</div>
       </div>
       <div class="spark" data-spark="${a.id}"></div>
@@ -414,10 +414,10 @@ function detailDialog(a) {
         <div class="muted small">${esc(a.name)} · ${esc(a.exchange || "")} ${last ? "· " + last : ""}</div>
         ${a.error ? `<div class="err">${esc(a.error)}</div>` : `
         <div class="detail-kpis">
-          <div class="kpi"><div class="label">Valore</div><div class="v num">${m(a.value)}</div></div>
-          <div class="kpi"><div class="label">Investito</div><div class="v num">${m(a.invested)}</div></div>
-          <div class="kpi"><div class="label">Guadagno</div><div class="v num ${tone(a.gain)}">${sm(a.gain)}</div></div>
-          <div class="kpi"><div class="label">Realizzato</div><div class="v num ${tone(a.realized)}">${sm(a.realized)}</div></div>
+          <div class="kpi"><div class="label">Valore</div><div class="v fig">${m(a.value)}</div></div>
+          <div class="kpi"><div class="label">Investito</div><div class="v fig">${m(a.invested)}</div></div>
+          <div class="kpi"><div class="label">Guadagno</div><div class="v fig ${tone(a.gain)}">${sm(a.gain)}</div></div>
+          <div class="kpi"><div class="label">Realizzato</div><div class="v fig ${tone(a.realized)}">${sm(a.realized)}</div></div>
         </div>
         <div class="chart detail-chart" data-chart></div>`}
         <h3 class="sub-title">Operazioni</h3>
