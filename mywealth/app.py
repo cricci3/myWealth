@@ -126,7 +126,7 @@ def startup(ctx: AppContext) -> None:
 
     if ctx.demo:
         demo.seed(ctx.db)
-        api.refresh_fx(ctx, wait=True)  # synthetic rates, no network
+        api.refresh_market(ctx, wait=True)  # synthetic rates, no network
     try:
         created = savings.generate(ctx.db)
         if created:
@@ -137,7 +137,7 @@ def startup(ctx: AppContext) -> None:
         return
     prefs = settings.load(ctx.db)
     if prefs["fx_auto_refresh"] and not prefs["offline_mode"]:
-        api.refresh_fx(ctx)  # background: the UI is usable while rates download
+        api.refresh_market(ctx)  # background: the UI is usable while rates download
 
 
 def main() -> int:

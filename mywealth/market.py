@@ -189,15 +189,16 @@ def _seed(symbol: str) -> int:
 
 
 def demo_series(symbol: str, start: date, end: date, level: float, vol_scale: float = 1.0) -> list[tuple[date, Decimal]]:
-    """Deterministic random walk on business days. The path is anchored to a fixed
-    epoch, so asking from a different start returns the same values."""
+    """Deterministic random walk on business days, scaled so that the last price is
+    `level`. The path is anchored to a fixed epoch, so asking from a different start
+    returns the same values."""
     seed = _seed(symbol)
     epoch = date(2015, 1, 1)
     state = seed
-    drift = ((seed % 13) - 3) / 100 / 252 * vol_scale
+    drift = ((seed % 9) + 3) / 100 / 252 * vol_scale  # +3% to +11% a year
     vol = (0.006 + (seed % 7) / 1000) * vol_scale
     price = level
-    out = []
+    path = []
     d = epoch
     i = 0
     while d <= end:
@@ -210,10 +211,10 @@ def demo_series(symbol: str, start: date, end: date, level: float, vol_scale: fl
             if vol_scale < 1:
                 price += (level - price) * 0.02
             i += 1
-            if d >= start:
-                out.append((d, Decimal(f"{price:.6g}")))
+            path.append((d, price))
         d += timedelta(days=1)
-    return out
+    scale = level / path[-1][1] if path else 1
+    return [(d, Decimal(f"{p * scale:.6g}")) for d, p in path if d >= start]
 
 
 class DemoProvider(Provider):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, categories, fx, money, savings, settings, transactions
+from . import __version__, accounts, categories, fx, investments, money, savings, settings, transactions
 from .router import Request, Router
 
 log = logging.getLogger(__name__)
@@ -155,13 +155,24 @@ def delete_transaction(ctx, req: Request):
 # -------------------------------------------------------------------------- fx
 
 
-def refresh_fx(ctx, force: bool = False, wait: bool = False) -> dict:
-    return ctx.run_job("fx", lambda: fx.refresh(ctx.db, ctx.provider(), force=force), wait=wait)
+def refresh_market(ctx, force: bool = False, wait: bool = False) -> dict:
+    """Exchange rates and asset prices, in one background job."""
+    def work() -> dict:
+        provider = ctx.provider()
+        rates = fx.refresh(ctx.db, provider, force=force)
+        prices = investments.refresh_prices(ctx.db, provider, force=force)
+        # merged view for the UI: errors keyed by currency or ticker
+        return {"updated": rates["updated"] + prices["updated"], "errors": {**rates["errors"], **prices["errors"]},
+                "skipped": rates["skipped"] + prices["skipped"]}
+
+    return ctx.run_job("market", work, wait=wait)
+
+
 
 
 @routes.get("fx")
 def fx_status(ctx, req: Request):
-    job = ctx.jobs.get("fx", {})
+    job = ctx.jobs.get("market", {})
     return {
         "rates": fx.status(ctx.db),
         "offline": settings.get(ctx.db, "offline_mode"),
@@ -172,7 +183,7 @@ def fx_status(ctx, req: Request):
 
 @routes.post("fx/refresh")
 def fx_refresh(ctx, req: Request):
-    refresh_fx(ctx, force=True, wait=True)
+    refresh_market(ctx, force=True, wait=True)
     return fx_status(ctx, req)
 
 
@@ -216,3 +227,69 @@ def savings_delete_rate(ctx, req: Request):
 @routes.post("savings/<id>/recalculate")
 def savings_recalculate(ctx, req: Request):
     return {"generated": savings.recalculate(ctx.db, req.params["id"], req.body().get("from_month"))}
+
+
+# ----------------------------------------------------------------- investments
+
+
+@routes.get("investments")
+def investment_accounts(ctx, req: Request):
+    return investments.list_accounts(ctx.db)
+
+
+@routes.get("investments/<id>")
+def investment_portfolio(ctx, req: Request):
+    return investments.portfolio(ctx.db, req.params["id"])
+
+
+@routes.post("investments/refresh")
+def investment_refresh(ctx, req: Request):
+    refresh_market(ctx, force=True, wait=True)
+    return fx_status(ctx, req)
+
+
+@routes.get("market/search")
+def market_search(ctx, req: Request):
+    return investments.search(ctx.provider(), req.q("q", ""))
+
+
+@routes.post("investments/<id>/assets")
+def create_asset(ctx, req: Request):
+    asset = investments.create_asset(ctx.db, ctx.provider(), req.params["id"], req.body())
+    investments.refresh_prices(ctx.db, ctx.provider(), tickers=[asset["ticker"]])
+    fx.refresh(ctx.db, ctx.provider())  # the instrument may bring a new currency
+    return asset
+
+
+@routes.put("assets/<id>")
+def update_asset(ctx, req: Request):
+    out = investments.update_asset(ctx.db, ctx.provider(), req.params["id"], req.body())
+    if "ticker" in out:
+        investments.refresh_prices(ctx.db, ctx.provider(), tickers=[out["ticker"]])
+    return out
+
+
+@routes.delete("assets/<id>")
+def delete_asset(ctx, req: Request):
+    investments.delete_asset(ctx.db, req.params["id"])
+    return {"ok": True}
+
+
+@routes.post("assets/<id>/trades")
+def add_trade(ctx, req: Request):
+    out = investments.add_trade(ctx.db, req.params["id"], req.body())
+    investments.refresh_prices(ctx.db, ctx.provider())  # older history may be needed now
+    return out
+
+
+@routes.put("trades/<id>")
+def update_trade(ctx, req: Request):
+    out = investments.update_trade(ctx.db, req.params["id"], req.body())
+    investments.refresh_prices(ctx.db, ctx.provider())
+    return out
+
+
+@routes.delete("trades/<id>")
+def delete_trade(ctx, req: Request):
+    investments.delete_trade(ctx.db, req.params["id"])
+    return {"ok": True}

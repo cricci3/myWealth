@@ -164,6 +164,49 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        5,
+        """
+        -- Instruments held in an investment account (ported from PortfolioTracker)
+        CREATE TABLE assets (
+            id           INTEGER PRIMARY KEY,
+            account_id   INTEGER NOT NULL REFERENCES accounts (id),
+            ticker       TEXT NOT NULL,           -- Yahoo symbol, e.g. VWCE.DE
+            name         TEXT NOT NULL DEFAULT '',
+            exchange     TEXT NOT NULL DEFAULT '',
+            currency     TEXT NOT NULL,           -- Yahoo quote currency (may be GBp, ZAc...)
+            input_symbol TEXT NOT NULL DEFAULT '', -- what the user typed (ticker or ISIN)
+            created_at   TEXT NOT NULL,
+            UNIQUE (account_id, ticker)
+        );
+
+        -- Buys and sells. Each one moves liquidity through a 'buy'/'sell' operation on the
+        -- account (and an optional linked 'fee'), so the account balance is the cash left.
+        CREATE TABLE asset_trades (
+            id                 INTEGER PRIMARY KEY,
+            asset_id           INTEGER NOT NULL REFERENCES assets (id) ON DELETE CASCADE,
+            kind               TEXT NOT NULL CHECK (kind IN ('buy', 'sell')),
+            date               TEXT NOT NULL,
+            amount             INTEGER NOT NULL CHECK (amount > 0),  -- account currency: cost / proceeds
+            shares             TEXT,  -- decimal text; required for sells, optional for buys
+            price              TEXT,  -- optional unit price paid, in the instrument currency
+            note               TEXT NOT NULL DEFAULT '',
+            transaction_id     INTEGER REFERENCES transactions (id),
+            fee_transaction_id INTEGER REFERENCES transactions (id),
+            created_at         TEXT NOT NULL,
+            updated_at         TEXT NOT NULL
+        );
+        CREATE INDEX asset_trades_asset ON asset_trades (asset_id, date);
+
+        -- Daily closes downloaded from Yahoo, in the quote currency (decimal text)
+        CREATE TABLE prices (
+            ticker TEXT NOT NULL,
+            date   TEXT NOT NULL,
+            close  TEXT NOT NULL,
+            PRIMARY KEY (ticker, date)
+        );
+        """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]

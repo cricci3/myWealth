@@ -24,3 +24,13 @@ def test_demo_savings_interest(db):
 
     demo.seed(db)
     assert len(savings.generate(db)) >= 11
+
+
+def test_demo_investments(db):
+    from mywealth import investments
+
+    demo.seed(db)
+    for acc in investments.list_accounts(db):
+        p = investments.portfolio(db, acc["id"])
+        assert p["assets"] and all(a["error"] is None for a in p["assets"])
+        assert float(p["summary"]["liquidity"]) >= 0

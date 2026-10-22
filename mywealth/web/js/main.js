@@ -3,11 +3,12 @@ import { $, $$, api, changed, onChange, state, store, toast, LOCALE, loadAccount
 import home from "./views/home.js";
 import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
+import investments from "./views/investments.js";
 
 const VIEWS = {
   home: { title: "Home", view: home },
   operazioni: { title: "Operazioni", view: operations },
-  investimenti: { title: "Investimenti", view: placeholder("Conti investimento", "In arrivo · M5") },
+  investimenti: { title: "Investimenti", view: investments },
   analytics: { title: "Analytics", view: placeholder("Analisi", "In arrivo · M7") },
   export: { title: "Export", view: placeholder("Esporta i dati", "In arrivo · M8") },
   impostazioni: { title: "Impostazioni", view: settingsView },

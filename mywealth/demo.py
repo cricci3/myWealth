@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import random
 from datetime import date, timedelta
+from decimal import Decimal
 
-from . import accounts, categories, savings, transactions
+from . import accounts, categories, investments, market, savings, transactions
 from .db import Database
 
 
@@ -104,3 +105,30 @@ def seed(db: Database, today: date | None = None) -> None:
         if m.month % 4 == 1:
             add("transfer", day(8), from_account_id=usd, to_account_id=broker_us, amount="200",
                 description="Versamento broker USA")
+
+    # ---------------------------------------------------------------- investments
+    provider = market.DemoProvider()
+
+    def buy(acc_id, ticker, amount, day: date, **kw):
+        if day > today:
+            return
+        existing = {a["ticker"]: a["id"] for a in investments.portfolio(db, acc_id)["assets"]}
+        if ticker in existing:
+            investments.add_trade(db, existing[ticker], {"kind": "buy", "amount": amount, "date": day.isoformat(), **kw})
+        else:
+            investments.create_asset(db, provider, acc_id, {"ticker": ticker, "amount": amount,
+                                                            "date": day.isoformat(), **kw})
+
+    buy(broker, "SWDA.MI", "1200", start + timedelta(days=2), fee="2.95")
+    buy(broker, "ENEL.MI", "500", start + timedelta(days=3))
+    buy(broker_us, "AAPL", "600", start + timedelta(days=4))
+    for m in _months(start, today):
+        buy(broker, "VWCE.DE", "400", m.replace(day=6))
+        if m.month % 4 == 1:
+            buy(broker_us, "VOO", "200", m.replace(day=9))
+    investments.refresh_prices(db, provider)
+    enel = next(a for a in investments.portfolio(db, broker)["assets"] if a["ticker"] == "ENEL.MI")
+    sell_day = today - timedelta(days=120)
+    proceeds = Decimal(enel["shares"]) * Decimal(enel["last_price"])
+    investments.add_trade(db, enel["id"], {"kind": "sell", "date": sell_day.isoformat(), "shares": "tutte",
+                                           "amount": f"{proceeds:.2f}", "fee": "2.95"})

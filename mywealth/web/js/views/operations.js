@@ -169,7 +169,7 @@ const TITLES = {
 };
 
 /** Add or edit an operation. Exported so other views (Home) can open it. */
-export async function transactionDialog(kind, t = null) {
+export async function transactionDialog(kind, t = null, preset = {}) {
   if (!state.categories.length) await loadCategories();
   const accs = activeAccounts().concat(t ? state.accounts.filter((a) => a.archived && [t.from_account_id, t.to_account_id].includes(a.id)) : []);
   if (!accs.length) { toast("Crea prima un conto dalla Home.", true); return null; }
@@ -177,7 +177,7 @@ export async function transactionDialog(kind, t = null) {
   return openDialog({
     title: TITLES[kind][t ? 1 : 0],
     render(body) {
-      body.innerHTML = isTransfer ? transferFields(accs, t) : simpleFields(kind, accs, t);
+      body.innerHTML = isTransfer ? transferFields(accs, t) : simpleFields(kind, accs, t, preset);
       wire(body, kind, t);
     },
     async onSubmit(form) {
@@ -201,9 +201,9 @@ function catOptions(nature, selected) {
   return options(list, selected);
 }
 
-function simpleFields(kind, accs, t) {
+function simpleFields(kind, accs, t, preset = {}) {
   const side = kind === "income" || kind === "interest" ? "to" : "from";
-  const accId = t ? t[`${side}_account_id`] : (accs[0] && accs[0].id);
+  const accId = t ? t[`${side}_account_id`] : (preset.account_id || (accs[0] && accs[0].id));
   const nature = kind === "income" || kind === "interest" ? "income" : "expense";
   return `
     <div class="grid2">
@@ -213,8 +213,8 @@ function simpleFields(kind, accs, t) {
         <div class="input-unit"><input name="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${t ? inputNum(t.amount) : ""}"><span class="unit" data-unit="account_id"></span></div>
         <span class="eur-hint" data-eur="amount"></span></label>
       <label class="field">Data<input type="date" name="date" max="${todayISO()}" value="${t ? t.date : todayISO()}"></label>
-      ${kind === "interest" ? "" : `<label class="field span2">Categoria<select name="category_id">${catOptions(nature, t ? t.category_id : "")}</select></label>`}
-      <label class="field span2">Descrizione<input name="description" maxlength="200" autocomplete="off" value="${esc(t?.description)}"></label>
+      ${kind === "interest" ? "" : `<label class="field span2">Categoria<select name="category_id">${catOptions(nature, t ? t.category_id : preset.category_id || "")}</select></label>`}
+      <label class="field span2">Descrizione<input name="description" maxlength="200" autocomplete="off" value="${esc(t ? t.description : preset.description)}"></label>
     </div>`;
 }
 
