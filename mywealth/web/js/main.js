@@ -1,5 +1,7 @@
 /* myWealth — UI entry point: router, theme, exit. Vanilla JS modules, no external dependencies. */
-import { $, $$, api, changed, onChange, state, store, toast, LOCALE, loadAccounts, loadRates, setNumberLocale } from "./core.js";
+import {
+  $, $$, api, changed, isMasked, onChange, setMasked, state, store, toast, LOCALE, loadAccounts, loadRates, setNumberLocale,
+} from "./core.js";
 import home from "./views/home.js";
 import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
@@ -89,6 +91,27 @@ export async function saveTheme(theme) {
 }
 window.addEventListener("mw-save-theme", (ev) => saveTheme(ev.detail));
 
+// ---------------------------------------------------------- hidden amounts --
+// The formatters in format.js do the hiding; here only the button, the shortcut and the setting.
+function applyMask(on) {
+  setMasked(on);
+  const btn = $("#btn-mask"), label = on ? "Mostra importi" : "Nascondi importi";
+  btn.setAttribute("aria-pressed", String(on));
+  btn.setAttribute("aria-label", label);
+  btn.title = `${label} (Ctrl+Shift+H)`;
+}
+
+async function toggleMask() {
+  const on = !isMasked();
+  applyMask(on);
+  changed("privacy");
+  try {
+    state.settings = await api("PUT", "/api/settings", { amounts_hidden: on });
+  } catch (e) {
+    toast(e.message, true); // the choice still applies to this window
+  }
+}
+
 // -------------------------------------------------------------------- exit --
 async function exitApp() {
   const btn = $("#btn-exit");
@@ -159,6 +182,7 @@ async function init() {
     ]);
     state.settings = settings;
     setNumberLocale(settings.number_format);
+    applyMask(settings.start_amounts_hidden || settings.amounts_hidden);
     state.status = status;
     state.currencies = currencies;
     applyTheme(settings.theme);
@@ -166,6 +190,13 @@ async function init() {
   } catch (e) {
     toast(e.message, true);
   }
+  $("#btn-mask").addEventListener("click", toggleMask);
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && e.code === "KeyH" && !e.repeat) {
+      e.preventDefault();
+      toggleMask();
+    }
+  });
   window.addEventListener("hashchange", showView);
   showView();
   watchFx();

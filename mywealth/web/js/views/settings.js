@@ -35,6 +35,13 @@ function mount(el) {
       </div>
       <div class="setting">
         <div>
+          <div class="setting-name">Avvia con importi oscurati</div>
+          <div class="setting-hint">All'apertura gli importi sono nascosti (•••••) anche se l'ultima volta erano visibili. Li mostri con l'occhio in alto o con Ctrl+Shift+H.</div>
+        </div>
+        <label class="switch"><input type="checkbox" data-setting="start_amounts_hidden" aria-label="Avvia con importi oscurati"><span></span></label>
+      </div>
+      <div class="setting">
+        <div>
           <div class="setting-name">Periodo del grafico in Home</div>
           <div class="setting-hint">Quello mostrato all'apertura; puoi cambiarlo dalla Home in ogni momento.</div>
         </div>

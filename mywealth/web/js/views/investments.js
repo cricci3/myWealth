@@ -1,7 +1,7 @@
 /* Investments: one sub-tab per investment account (UI ported from PortfolioTracker). */
 import {
   $, $$, api, changed, confirmDialog, dateFmt, esc, formData, ICON, inputNum, loadAccounts, loadCategories, money,
-  num, openDialog, parseNum, pct, signedMoney, state, store, toast, todayISO, tone,
+  num, openDialog, parseNum, pct, qty, share, signedMoney, state, store, toast, todayISO, tone,
 } from "../core.js";
 import { colorVar, drawChart, sliceRange } from "../charts.js";
 import { transactionDialog } from "./operations.js";
@@ -178,7 +178,7 @@ function drawMain() {
   if (ranked.length >= 2) {
     alloc.innerHTML = `
       <div class="alloc-bar">${ranked.map((a) => `<i style="width:${(a.value / total) * 100}%;background:${map[a.id]}" title="${esc(a.ticker)}"></i>`).join("")}</div>
-      <div class="alloc-legend">${ranked.map((a) => `<span><i style="background:${map[a.id]}"></i>${esc(shortName(a))} <b>${num((a.value / total) * 100, 1)}%</b></span>`).join("")}</div>`;
+      <div class="alloc-legend">${ranked.map((a) => `<span><i style="background:${map[a.id]}"></i>${esc(shortName(a))} <b>${share((a.value / total) * 100)}</b></span>`).join("")}</div>`;
   }
 }
 
@@ -242,7 +242,7 @@ function assetCard(a) {
       <div class="spark" data-spark="${a.id}"></div>
     </div>
     <div class="asset-stats">
-      <div><div class="label">Investito</div><div class="v">${m(a.invested)}</div><div class="s">${num(a.shares, 4)} quote · ${n} op.</div></div>
+      <div><div class="label">Investito</div><div class="v">${m(a.invested)}</div><div class="s">${qty(a.shares, 4)} quote · ${n} op.</div></div>
       <div><div class="label">Annuo</div><div class="v ${tone(a.annualized_pct)}">${pct(a.annualized_pct)}</div><div class="s">${a.annualized_pct == null ? "dopo 6 mesi" : "XIRR"}</div></div>
       <div><div class="label">12 mesi</div><div class="v ${tone(yoy?.pct)}">${yoy ? pct(yoy.pct) : "—"}</div><div class="s ${yoy ? tone(yoy.gain) : ""}">${yoy ? sm(yoy.gain, 0) : held(a.held_days) + " di storico"}</div></div>
     </div>
@@ -279,7 +279,7 @@ function tradeFields(kind, a, t = null) {
       ${sell ? `
       <label class="field span2">Quote vendute
         <div class="row-actions"><input class="input grow" name="shares" inputmode="decimal" autocomplete="off" value="${t ? inputNum(t.shares_input) : ""}">
-          ${a && !a.error ? `<button class="btn btn-sm" type="button" data-all>Tutte (${num(a.shares, 6)})</button>` : ""}</div>
+          ${a && !a.error ? `<button class="btn btn-sm" type="button" data-all>Tutte (${qty(a.shares, 6)})</button>` : ""}</div>
         <span class="hint">Il costo delle quote vendute (costo medio) esce dall'investito; la differenza con l'incasso è guadagno realizzato.</span></label>` : `
       <label class="field"><span>Prezzo unitario <span class="muted">(facoltativo)</span></span>
         <div class="input-unit"><input name="price" inputmode="decimal" autocomplete="off" value="${t ? inputNum(t.price_input) : ""}"><span class="unit">${esc(a ? a.currency : "")}</span></div>
@@ -429,7 +429,7 @@ function detailDialog(a) {
             <td>${dateFmt(t.date)}${t.note ? `<div class="cell-sub">${esc(t.note)}</div>` : ""}</td>
             <td><span class="kind-tag ${t.kind === "buy" ? "expense" : "income"}">${t.kind === "buy" ? "Acquisto" : "Vendita"}</span></td>
             <td class="num">${m(t.amount)}${t.fee ? `<div class="cell-sub">comm. ${m(t.fee)}</div>` : ""}</td>
-            <td class="num">${t.shares ? num(t.shares, 6) : "—"}</td>
+            <td class="num">${t.shares ? qty(t.shares, 6) : "—"}</td>
             <td class="num hide-sm">${t.exec_price ? m(t.exec_price, 4) : "—"}</td>
             <td class="num hide-sm ${tone(t.realized)}">${t.realized ? sm(t.realized) : ""}</td>
             <td class="actions"><button type="button" class="icon-btn" title="Modifica" data-edit="${t.id}">${ICON.edit}</button>

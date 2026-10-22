@@ -22,6 +22,7 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 | M12 | Finestra app in Brave (poi Edge, poi browser predefinito) | ✅ Fatta | `f13189f` |
 | M13 | Smartphone, lato desktop: abbinamento QR, cartella in arrivo, import cifrato con deduplica | ✅ Fatta | `f080941` |
 | M14 | App smartphone (PWA): inserimento offline, export cifrato, condivisione, GitHub Pages | ✅ Fatta | `184169a` |
+| M15 | Importi oscurati: pulsante occhio, Ctrl+Shift+H, stato ricordato, "Avvia con importi oscurati" | ✅ Fatta | — |
 
 ## Da fare
 
@@ -39,6 +40,11 @@ Stato delle milestone di [`docs/SPEC.md`](docs/SPEC.md) §11. Le decisioni prese
 - [ ] Trasferimento su un altro PC: "Esporta tutto" → "Importa tutto" dalla schermata di primo avvio.
 - [ ] Finestra app in Brave (anche con Shields attivo) e ripiego su Edge se Brave non c'è.
 - [ ] Cartella Download reale come cartella in arrivo (anche se spostata su un altro disco).
+
+### Importi oscurati (da verificare a mano in `--demo`)
+- [ ] Pulsante occhio e Ctrl+Shift+H su tutte le schede, in tema chiaro e scuro e a finestra stretta (la verifica nel browser non è stata possibile durante lo sviluppo).
+- [ ] Ctrl+Shift+H non in conflitto con Brave/Edge in modalità app.
+- [ ] Stato ricordato dopo la riapertura; "Avvia con importi oscurati" ha la precedenza.
 
 ### Smartphone (da verificare sul telefono reale)
 - [ ] Attivare GitHub Pages: repository → Settings → Pages → Source: **GitHub Actions**; poi push di `mobile/`.

@@ -198,7 +198,7 @@ async function loadReport() {
   const cell = (row, col, neg = false, extra = "") => {
     const v = row[col], e = row[`${col}_eur`];
     const n = Number(v);
-    const cls = n === 0 ? "muted" : neg ? (n > 0 ? "neg" : "pos") : tone(n);
+    const cls = n === 0 ? "muted" : tone(neg ? -n : n);
     return `<td class="num ${extra}"><span class="${cls}">${n === 0 ? "—" : money(v, row.currency)}</span>${row.currency !== "EUR" && n !== 0 ? `<div class="cell-sub">${e == null ? "EUR n.d." : money(e, "EUR")}</div>` : ""}</td>`;
   };
   $("#rep-table", root).innerHTML = !r.accounts.length ? `<div class="empty-row">Nessun conto.</div>` : `

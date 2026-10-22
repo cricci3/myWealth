@@ -1,7 +1,7 @@
 /* Home: net worth, account cards, history chart, accounts table. */
 import {
   $, $$, api, changed, confirmDialog, dateFmt, esc, formData, ICON, inputNum, loadAccounts, loadRates, money, num,
-  openDialog, options, rateNote, state, store, toast, toEur, todayISO,
+  openDialog, options, rateNote, state, store, toast, toEur, todayISO, tone,
 } from "../core.js";
 import { colorVar, drawChart } from "../charts.js";
 import { manualRateDialog } from "./settings.js";
@@ -84,7 +84,7 @@ function renderCards() {
     const href = a.behavior === "investment" ? "#investimenti" : `#operazioni/conto/${a.id}`;
     return `<a class="card acc-card" href="${href}" style="--acc:${colorVar(i)}">
       <div class="acc-name"><i></i><span>${esc(a.name)}</span><em>${esc(a.currency)}</em></div>
-      <div class="acc-v fig ${Number(a.value) < 0 ? "neg" : ""}">${money(a.value, a.currency)}</div>
+      <div class="acc-v fig ${tone(a.value) === "neg" ? "neg" : ""}">${money(a.value, a.currency)}</div>
       ${eur}
       <div class="acc-sub">${sub}</div>
     </a>`;
@@ -193,7 +193,7 @@ function row(a) {
     <td>${esc(a.currency)}</td>
     <td class="hide-sm">${esc(a.type_name)}</td>
     <td class="hide-md">${dateFmt(a.opened_on)}</td>
-    <td class="num"><span class="${Number(a.balance) < 0 ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}${a.behavior === "investment" ? `<div class="cell-sub">liquidità</div>` : ""}</td>
+    <td class="num"><span class="${tone(a.balance) === "neg" ? "neg" : ""}">${money(a.balance, a.currency)}</span>${eurLine(a)}${a.behavior === "investment" ? `<div class="cell-sub">liquidità</div>` : ""}</td>
     <td class="actions">
       ${a.behavior === "savings" ? `<button class="icon-btn" title="Rendimento e interessi" data-act="savings" data-id="${a.id}">${ICON.percent}</button>` : ""}
       <button class="icon-btn" title="Modifica" data-act="edit" data-id="${a.id}">${ICON.edit}</button>

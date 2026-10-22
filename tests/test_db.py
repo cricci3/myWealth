@@ -72,7 +72,18 @@ def test_settings_defaults_and_update(db):
     assert settings.load(db)["theme"] == "dark"
 
 
-@pytest.mark.parametrize("changes", [{"theme": "blue"}, {"unknown": 1}, {"theme": "dark", "unknown": 1}])
+def test_settings_hidden_amounts(db):
+    # off by default; the last state and the "start hidden" option are kept apart
+    assert settings.load(db)["amounts_hidden"] is False
+    assert settings.load(db)["start_amounts_hidden"] is False
+    settings.update(db, {"amounts_hidden": True})
+    saved = settings.update(db, {"start_amounts_hidden": True, "amounts_hidden": False})
+    assert (saved["amounts_hidden"], saved["start_amounts_hidden"]) == (False, True)
+    assert settings.load(db)["start_amounts_hidden"] is True
+
+
+@pytest.mark.parametrize("changes", [{"theme": "blue"}, {"unknown": 1}, {"theme": "dark", "unknown": 1},
+                                     {"amounts_hidden": "yes"}, {"start_amounts_hidden": 1}])
 def test_settings_rejects_invalid(db, changes):
     with pytest.raises(settings.SettingsError):
         settings.update(db, changes)

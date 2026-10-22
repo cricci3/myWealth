@@ -180,6 +180,7 @@ Sottoschede per conto investimenti (§7). Per ogni conto: liquidità disponibile
 ### 8.6 Impostazioni
 - Tema chiaro/scuro/sistema.
 - Formato numeri e date.
+- "Avvia con importi oscurati" (vedi §8.7).
 - Modalità offline (nessuna chiamata a Yahoo).
 - Aggiornamento automatico dei cambi all'avvio sì/no; aggiunta manuale di un tasso di cambio.
 - Gestione categorie e tipi di conto.
@@ -189,6 +190,17 @@ Sottoschede per conto investimenti (§7). Per ogni conto: liquidità disponibile
 - Porta del server.
 - Avvio: crea/rimuovi collegamenti menu Start e desktop, apri in finestra app o in scheda del browser, chiusura automatica dopo inattività (vedi §13).
 - (Opzionale) PIN di sblocco all'apertura dell'app.
+
+### 8.7 Importi oscurati
+Per usare l'app davanti ad altre persone o condividere lo schermo.
+- Pulsante a forma di occhio sempre visibile nell'intestazione di ogni scheda, a destra dei pulsanti della scheda; scorciatoia **Ctrl+Shift+H**. Da attivo il pulsante è evidenziato e mostra l'occhio barrato.
+- Oscura tutti gli importi: saldi, totali, importi delle operazioni (anche commissioni e controvalori EUR), valori, guadagni e percentuali degli investimenti, quote possedute, pesi dell'allocazione, report e tasso di risparmio di Analytics, assi, tooltip e centro della ciambella nei grafici, importi nell'anteprima degli import. Ogni importo diventa `••••• EUR` (la valuta resta visibile), le percentuali `•••%`, le etichette degli assi `•••`.
+- Da oscurati spariscono anche il segno +/− dei risultati e il colore verde/rosso legato al segno (direbbero se si è in guadagno o in perdita). Restano il tipo di operazione e il colore fisso delle colonne (es. "Uscite").
+- Restano visibili: nomi di conti, asset e categorie, valute, date, numero di operazioni, cambi valuta, tassi del salvadanaio e prezzi di mercato (non sono dati personali). La forma dei grafici resta, senza scala né valori.
+- I campi dei moduli di inserimento e modifica restano in chiaro, altrimenti non si potrebbero compilare; i testi di sola lettura nei dialoghi sono oscurati.
+- Lo stato è salvato nelle impostazioni (`amounts_hidden`) e ripristinato all'avvio. Con "Avvia con importi oscurati" (`start_amounts_hidden`) l'app parte sempre oscurata, qualunque fosse l'ultimo stato.
+- È solo un filtro di visualizzazione: API, export, archivi e backup restano invariati.
+- Implementazione centralizzata: tutti gli importi passano dai formattatori di `mywealth/web/js/format.js` (`money`, `signedMoney`, `pct`, `share`, `qty`, `compact`, `tone`, `maskRaw`); il pulsante cambia lo stato lì e ridisegna la scheda visibile, le altre al successivo cambio di scheda.
 
 ## 9. Import CSV **[DECISIONE PROPOSTA D6]**
 - Formato proprio con template scaricabile: `data;tipo;conto_origine;conto_destinazione;importo;importo_destinazione;categoria;descrizione`.
@@ -222,6 +234,7 @@ Ogni milestone termina con test verdi e verifica della UI in modalità demo.
 | M12 | Finestra app in Brave (§15). |
 | M13 | Desktop – smartphone, lato desktop: abbinamento con QR, "configurazione mobile", import dei file cifrati da selezione file e dalla cartella in arrivo, deduplica per `id` (§16.4–16.6). |
 | M14 | PWA smartphone: inserimento offline, voci in sospeso, abbinamento da QR, export cifrato e condivisione via email, pubblicazione su GitHub Pages (§16.2–16.3, §16.7). |
+| M15 | Importi oscurati: pulsante occhio nell'intestazione, scorciatoia, stato ricordato, opzione "Avvia con importi oscurati" (§8.7). |
 
 ---
 
@@ -348,6 +361,12 @@ Punti che la specifica non fissava, scelti durante l'implementazione (M1–M10).
 - La chiusura per inattività vale solo quando è l'app ad aprire la finestra (non con `--no-browser`, usato in sviluppo).
 - (M12) L'impostazione `app_browser` (Automatico / Brave / Edge / Browser predefinito) sostituisce `launch_mode`; un vecchio `launch_mode = browser` vale come "Browser predefinito". Brave ed Edge hanno profili separati (`browser-profile-brave`, `browser-profile`). Brave scelto ma assente → Edge → scheda del browser predefinito.
 - Formato dei numeri: `1.234,56` (default) o `1,234.56`; date sempre gg/mm/aaaa e testi in italiano.
+
+**Importi oscurati (M15)**
+- I formattatori numerici sono stati spostati da `core.js` a `format.js` (senza DOM, testabile con Node); `core.js` li riesporta. `num()` resta sempre in chiaro ed è riservato a cambi, tassi e prezzi; le quote possedute usano `qty()`, i pesi dell'allocazione `share()`.
+- Oscurare toglie segno e colore di guadagni/perdite (`tone()` restituisce una classe vuota); il segno che dipende solo dal tipo di operazione (spesa/entrata) resta.
+- I dialoghi già aperti non si aggiornano quando si cambia lo stato: lo fanno alla riapertura.
+- Se il salvataggio dell'impostazione fallisce, lo stato vale comunque per la finestra corrente (è una scelta di privacy) e compare un avviso.
 
 **Smartphone (M13–M14)**
 - QR generato con `segno` (Python puro, nessuna estensione compilata). Contenuto: JSON compatto `{"mw":1,"key","kid","at","accounts":[[nome, valuta, decimali]],"categories":{"expense":[…],"income":[…],"transfer":[…]}}`. Oltre 700 caratteri si divide in più QR `MWQR:<i>/<n>:<parte>`, leggibili in qualsiasi ordine; il testo da copiare è il JSON intero. I decimali della valuta servono al telefono per controllare l'importo.

@@ -211,6 +211,10 @@ svg { display: block; }
 .icon-btn.spinning svg { animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.page-tools { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-left: auto; }
+.mask-btn .i-eye-off, .mask-btn[aria-pressed="true"] .i-eye { display: none; }
+.mask-btn[aria-pressed="true"] .i-eye-off { display: block; }
+.icon-btn.mask-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .row-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .check { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 13px; cursor: pointer; user-select: none; }
 .check input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }

@@ -1,10 +1,13 @@
 /* myWealth — shared helpers: API access, formatting, parsing, dialogs, toasts. */
+import { money, NUM_LOCALE } from "./format.js";
+
+// Number formatting lives in format.js (also where amounts are hidden): re-exported for the views.
+export {
+  compact, isMasked, maskRaw, money, num, NUM_LOCALE, pct, qty, setMasked, setNumberLocale, share, signedMoney, tone,
+} from "./format.js";
 
 export const TOKEN = document.querySelector('meta[name="mywealth-token"]').content;
 export const LOCALE = "it-IT"; // texts and dates are always Italian
-/** Number format (setting): it-IT "1.234,56" or en-GB "1,234.56". */
-export let NUM_LOCALE = "it-IT";
-export function setNumberLocale(loc) { NUM_LOCALE = loc === "en-GB" ? "en-GB" : "it-IT"; }
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
@@ -61,46 +64,6 @@ export async function download(path, fallbackName) {
 
 // ---------------------------------------------------------------- formatting --
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-const fmtCache = {};
-function moneyFormatter(cur, dec) {
-  const k = `${NUM_LOCALE}|${cur}|${dec}`;
-  if (!fmtCache[k]) {
-    const opts = { style: "currency", currency: cur, currencyDisplay: "code", useGrouping: "always" };
-    if (dec != null) { opts.minimumFractionDigits = dec; opts.maximumFractionDigits = dec; }
-    fmtCache[k] = new Intl.NumberFormat(NUM_LOCALE, opts);
-  }
-  return fmtCache[k];
-}
-
-/** "1234.5" + "EUR" -> "1.234,50 EUR" (display only: amounts arrive as decimal strings). */
-export function money(value, cur = "EUR", dec) {
-  if (value == null || value === "") return "—";
-  const n = typeof value === "number" ? value : Number(value);
-  if (!isFinite(n)) return "—";
-  // "currencyDisplay: code" puts the code before or after depending on the locale: normalise
-  const parts = moneyFormatter(cur, dec).formatToParts(n);
-  const numStr = parts.filter((p) => p.type !== "currency" && p.type !== "literal").map((p) => p.value).join("");
-  return `${numStr} ${cur}`;
-}
-
-export const signedMoney = (v, cur, dec) => {
-  if (v == null) return "—";
-  const n = Number(v);
-  return (n > 0 ? "+" : n < 0 ? "−" : "") + money(Math.abs(n), cur, dec);
-};
-
-export function num(value, maxDec = 2, minDec = 0) {
-  if (value == null || value === "") return "—";
-  return Number(value).toLocaleString(NUM_LOCALE, { minimumFractionDigits: minDec, maximumFractionDigits: maxDec, useGrouping: "always" });
-}
-
-export const pct = (v, dec = 1) => (v == null || isNaN(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") +
-  Math.abs(v).toLocaleString(NUM_LOCALE, { minimumFractionDigits: dec, maximumFractionDigits: dec }) + "%");
-
-export const tone = (v) => (v == null ? "" : Number(v) > 0 ? "pos" : Number(v) < 0 ? "neg" : "");
-
-export const compact = (v) => new Intl.NumberFormat(NUM_LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(v);
 
 export const dateFmt = (iso) => { if (!iso) return "—"; const [y, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
 export const monthName = (ym) => new Date(ym + "-01T00:00:00").toLocaleDateString(LOCALE, { month: "long", year: "numeric" });

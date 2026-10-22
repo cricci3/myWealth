@@ -15,6 +15,8 @@ DEFAULTS: dict = {
     "interest_tax_rate": "26",  # percent, decimal text
     "home_range": "90",  # default range of the Home chart
     "number_format": "it-IT",  # it-IT 1.234,56 | en-GB 1,234.56 (display only)
+    "amounts_hidden": False,  # amounts shown as ••••• (eye button); remembered between runs
+    "start_amounts_hidden": False,  # always start with amounts hidden, whatever the last state
     "backup_keep": 10,  # automatic backups kept in <data dir>/backups
     "onboarded": False,  # first-run screen already answered
     "app_browser": "auto",  # app window: auto (Brave, then Edge) | brave | edge | default (browser tab)

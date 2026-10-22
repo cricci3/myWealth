@@ -1,7 +1,7 @@
 /* CSV imports: the app's own format, and bank statements through a column mapping. */
 import {
-  $, $$, activeAccounts, api, changed, dateFmt, download, esc, loadAccounts, loadCategories, openDialog, options, state,
-  toast,
+  $, $$, activeAccounts, api, changed, dateFmt, download, esc, loadAccounts, loadCategories, maskRaw, openDialog, options,
+  state, toast,
 } from "./core.js";
 
 const KINDS = { expense: "Spesa", income: "Entrata", transfer: "Trasferimento" };
@@ -25,7 +25,7 @@ export function previewHtml(r, lineLabel = (line) => line) {
       <thead><tr><th>Riga</th><th>Data</th><th>Tipo</th><th>Conto</th><th class="num">Importo</th><th>Categoria</th><th>Descrizione</th><th>Esito</th></tr></thead>
       <tbody>${r.rows.map((x) => `<tr class="${x.errors.length ? "row-error" : x.skipped ? "row-skipped" : x.warnings.length ? "row-warn" : ""}">
         <td class="nowrap">${esc(lineLabel(x.line))}</td><td class="nowrap">${x.date ? dateFmt(x.date) : "—"}</td><td>${KINDS[x.kind] || "—"}</td>
-        <td>${esc(x.account || "")}${x.to_account ? ` → ${esc(x.to_account)}` : ""}</td><td class="num">${esc(x.amount)}</td>
+        <td>${esc(x.account || "")}${x.to_account ? ` → ${esc(x.to_account)}` : ""}</td><td class="num">${esc(maskRaw(x.amount))}</td>
         <td>${esc(x.category)}</td><td>${esc(x.description)}</td>
         <td>${outcome(x)}</td></tr>`).join("")}
       </tbody></table></div></div>`;
