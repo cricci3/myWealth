@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from . import __version__, accounts, analytics, categories, fx, home, investments, money, savings, settings, transactions
-from .router import Request, Router
+from . import __version__, accounts, analytics, archive, categories, csvio, fx, home, investments, money, savings, settings, transactions
+from .router import Request, Response, Router
 
 log = logging.getLogger(__name__)
 
@@ -329,3 +329,105 @@ def analytics_accounts(ctx, req: Request):
 @routes.get("analytics/networth")
 def analytics_networth(ctx, req: Request):
     return analytics.net_worth(ctx.db)
+
+
+# ------------------------------------------------------------- export / import
+
+
+@routes.get("export/<what:str>")
+def export_data(ctx, req: Request):
+    body, name, ext = csvio.export(ctx.db, str(req.params["what"]), req.q("format", "csv"), req.query)
+    ctype = "text/csv; charset=utf-8" if ext == "csv" else "application/json; charset=utf-8"
+    return Response(body, ctype, name)
+
+
+@routes.get("import/template")
+def import_template(ctx, req: Request):
+    return Response(("﻿" + csvio.TEMPLATE).encode("utf-8"), "text/csv; charset=utf-8", "myWealth_modello_import.csv")
+
+
+@routes.post("import/preview")
+def import_preview(ctx, req: Request):
+    return csvio.preview(ctx.db, csvio.decode(req.raw()), req.q("create_categories") == "1")
+
+
+@routes.post("import/csv")
+def import_csv(ctx, req: Request):
+    return csvio.import_csv(ctx.db, csvio.decode(req.raw()), req.q("create_categories") == "1")
+
+
+@routes.get("archive")
+def archive_export(ctx, req: Request):
+    return Response(archive.build(ctx.db), "application/zip", archive.filename())
+
+
+@routes.post("archive/inspect")
+def archive_inspect(ctx, req: Request):
+    manifest, _ = archive.inspect(req.raw())
+    return {"archive": archive.summary(manifest), "current_empty": archive.is_empty(ctx.db)}
+
+
+def _after_restore(ctx) -> None:
+    savings.generate(ctx.db)
+    refresh_market(ctx)
+
+
+@routes.post("archive/restore")
+def archive_restore(ctx, req: Request):
+    out = archive.restore(ctx.db, ctx.data_dir, req.raw())
+    settings.update(ctx.db, {"onboarded": True})
+    _after_restore(ctx)
+    return out
+
+
+@routes.get("backups")
+def backups_list(ctx, req: Request):
+    return {"folder": str(archive.backups_dir(ctx.data_dir)), "items": archive.list_backups(ctx.data_dir)}
+
+
+@routes.post("backups")
+def backups_create(ctx, req: Request):
+    return {"name": archive.create_backup(ctx.db, ctx.data_dir, "manual")}
+
+
+@routes.post("backups/<name:str>/restore")
+def backups_restore(ctx, req: Request):
+    out = archive.restore_backup(ctx.db, ctx.data_dir, str(req.params["name"]))
+    _after_restore(ctx)
+    return out
+
+
+@routes.get("backups/<name:str>")
+def backups_download(ctx, req: Request):
+    path = archive.backup_path(ctx.data_dir, str(req.params["name"]))
+    return Response(path.read_bytes(), "application/zip", path.name)
+
+
+# ------------------------------------------------------------------ first run
+
+
+@routes.get("onboarding")
+def onboarding(ctx, req: Request):
+    show = not ctx.demo and not settings.get(ctx.db, "onboarded") and archive.is_empty(ctx.db)
+    return {"show": show}
+
+
+@routes.post("onboarding")
+def onboarding_done(ctx, req: Request):
+    settings.update(ctx.db, {"onboarded": True})
+    return {"ok": True}
+
+
+@routes.post("demo/launch")
+def demo_launch(ctx, req: Request):
+    from . import launcher
+
+    return {"url": launcher.launch_demo()}
+
+
+@routes.post("data-dir/open")
+def data_dir_open(ctx, req: Request):
+    from . import launcher
+
+    launcher.open_folder(ctx.data_dir)
+    return {"ok": True}

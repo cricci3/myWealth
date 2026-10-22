@@ -5,23 +5,18 @@ import settingsView from "./views/settings.js";
 import operations from "./views/operations.js";
 import investments from "./views/investments.js";
 import analytics from "./views/analytics.js";
+import exportView from "./views/export.js";
+import { importAll } from "./transfer.js";
 
 const VIEWS = {
   home: { title: "Home", view: home },
   operazioni: { title: "Operazioni", view: operations },
   investimenti: { title: "Investimenti", view: investments },
   analytics: { title: "Analytics", view: analytics },
-  export: { title: "Export", view: placeholder("Esporta i dati", "In arrivo · M8") },
+  export: { title: "Export", view: exportView },
   impostazioni: { title: "Impostazioni", view: settingsView },
 };
 const THEME_NAMES = { system: "Sistema", light: "Chiaro", dark: "Scuro" };
-
-function placeholder(title, tag) {
-  return {
-    mount(el) { el.innerHTML = `<div class="card empty"><h2>${title}</h2><span class="tag">${tag}</span></div>`; },
-    show() {},
-  };
-}
 
 // ------------------------------------------------------------------ router --
 const mounted = new Set();
@@ -136,6 +131,46 @@ async function init() {
   window.addEventListener("hashchange", showView);
   showView();
   watchFx();
+  onboarding();
+}
+
+// First run (empty database): start from scratch, import from another PC or try the demo.
+async function onboarding() {
+  let res;
+  try { res = await api("GET", "/api/onboarding"); } catch (e) { return; }
+  if (!res.show) return;
+  const box = document.createElement("div");
+  box.className = "onboarding";
+  box.innerHTML = `
+    <div class="onboarding-box card">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M15 8h5v5"/></svg></span>
+      <h2>Benvenuto in myWealth</h2>
+      <p class="muted">I dati restano su questo computer. Come vuoi iniziare?</p>
+      <div class="onboarding-choices">
+        <button type="button" class="choice" data-choice="new"><b>Inizia da zero</b><span>Crea il primo conto e registra le operazioni.</span></button>
+        <button type="button" class="choice" data-choice="import"><b>Importa da un altro PC</b><span>Scegli il file esportato con “Esporta tutto”.</span></button>
+        <button type="button" class="choice" data-choice="demo"><b>Prova con dati demo</b><span>Apre una copia separata con dati finti: i tuoi dati non vengono toccati.</span></button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+  const done = async () => { await api("POST", "/api/onboarding").catch(() => {}); box.remove(); };
+  box.querySelector('[data-choice="new"]').addEventListener("click", async () => {
+    await done();
+    location.hash = "#home";
+    document.querySelector("#btn-new-account")?.click();
+  });
+  box.querySelector('[data-choice="import"]').addEventListener("click", async () => { if (await importAll()) box.remove(); });
+  box.querySelector('[data-choice="demo"]').addEventListener("click", async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true;
+    b.querySelector("span").textContent = "Avvio della demo…";
+    try {
+      const { url } = await api("POST", "/api/demo/launch");
+      window.open(url, "_blank", "noopener");
+      b.querySelector("span").textContent = "Demo aperta in un'altra finestra. Quando vuoi, torna qui e scegli come iniziare.";
+    } catch (e) { toast(e.message, true); }
+    b.disabled = false;
+  });
 }
 
 // Rates download in the background at startup: refresh the views when it ends.

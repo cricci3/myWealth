@@ -196,17 +196,23 @@ def _warnings(conn: sqlite3.Connection, account_ids) -> list[str]:
 
 
 def create(db: Database, data: dict) -> dict:
+    with db.transaction() as conn:
+        tx_id, touched = create_in(conn, data)
+        out = _get(conn, tx_id)
+        out["warnings"] = _warnings(conn, touched)
+    return out
+
+
+def create_in(conn: sqlite3.Connection, data: dict) -> tuple[int, list]:
+    """Validate and insert a user operation inside an open transaction (also used by the
+    CSV import). Returns its id and the accounts it touched."""
     if data.get("kind") not in USER_KINDS:
         raise ValidationError("Tipo di operazione non valido.")
-    with db.transaction() as conn:
-        row, fee = _build(conn, data, None)
-        tx_id = write(conn, row)
-        if row["kind"] == "transfer":
-            _save_fee(conn, tx_id, row, fee)
-        out = _get(conn, tx_id)
-        out["warnings"] = _warnings(conn, [row.get("from_account_id"), row.get("to_account_id"),
-                                           fee and fee["account"]["id"]])
-    return out
+    row, fee = _build(conn, data, None)
+    tx_id = write(conn, row)
+    if row["kind"] == "transfer":
+        _save_fee(conn, tx_id, row, fee)
+    return tx_id, [row.get("from_account_id"), row.get("to_account_id"), fee and fee["account"]["id"]]
 
 
 def update(db: Database, tx_id: int, data: dict) -> dict:

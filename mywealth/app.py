@@ -122,8 +122,14 @@ def _serve(args: argparse.Namespace, data_dir: Path) -> int:
 
 def startup(ctx: AppContext) -> None:
     """Data jobs run at every start: demo data, exchange rates."""
-    from . import api, demo, savings, settings
+    from . import api, archive, demo, savings, settings
 
+    if not ctx.demo and not archive.is_empty(ctx.db):
+        try:
+            name = archive.create_backup(ctx.db, ctx.data_dir, "auto")
+            log.info("Backup saved: %s", name)
+        except Exception:
+            log.exception("Automatic backup failed")
     if ctx.demo:
         demo.seed(ctx.db)
         api.refresh_market(ctx, wait=True)  # synthetic rates, no network

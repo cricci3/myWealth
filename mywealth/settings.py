@@ -12,7 +12,12 @@ DEFAULTS: dict = {
     "interest_tax_enabled": False,  # withholding tax on savings interest
     "interest_tax_rate": "26",  # percent, decimal text
     "home_range": "90",  # default range of the Home chart
+    "backup_keep": 10,  # automatic backups kept in <data dir>/backups
+    "onboarded": False,  # first-run screen already answered
 }
+
+# Settings tied to this computer: never taken from an imported archive.
+MACHINE_KEYS = ("port", "launch_mode", "idle_minutes", "autostart")
 
 _CHOICES: dict[str, tuple] = {
     "theme": ("system", "light", "dark"),
@@ -20,7 +25,7 @@ _CHOICES: dict[str, tuple] = {
 }
 
 # key -> (min, max) for integer settings
-_RANGES: dict[str, tuple[int, int]] = {}
+_RANGES: dict[str, tuple[int, int]] = {"backup_keep": (1, 100)}
 
 
 class SettingsError(ValidationError):

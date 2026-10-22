@@ -1,6 +1,7 @@
 /* Settings: theme, account types, information. */
+import { exportAll, importAll, restoreBackup } from "../transfer.js";
 import {
-  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, dateFmt, esc, formData, ICON, loadAccounts, loadCategories,
+  $, $$, api, BEHAVIOR_NAMES, changed, confirmDialog, dateFmt, download, esc, formData, ICON, loadAccounts, loadCategories,
   loadRates, num, openDialog, options, state, toast, todayISO,
 } from "../core.js";
 
@@ -85,6 +86,35 @@ function mount(el) {
     </div>
     <div class="cat-grid" id="cat-grid"></div>
 
+    <div class="section-head">
+      <h2 class="section-title">Dati e backup</h2>
+      <div class="row-actions">
+        <button class="btn btn-sm" type="button" id="btn-export-all">Esporta tutto</button>
+        <button class="btn btn-sm" type="button" id="btn-import-all">Importa tutto</button>
+      </div>
+    </div>
+    <div class="card settings">
+      <div class="setting">
+        <div>
+          <div class="setting-name">Cartella dati</div>
+          <div class="setting-hint mono" id="data-dir"></div>
+        </div>
+        <button class="btn btn-sm" type="button" id="btn-open-dir">${ICON.folder}Apri cartella</button>
+      </div>
+      <div class="setting">
+        <div>
+          <div class="setting-name">Backup automatici da conservare</div>
+          <div class="setting-hint">Un backup a ogni avvio, nello stesso formato di “Esporta tutto”.</div>
+        </div>
+        <input class="input small-num" type="number" min="1" max="100" id="backup-keep" aria-label="Numero di backup">
+      </div>
+    </div>
+    <div class="section-head">
+      <h3 class="section-title">Backup</h3>
+      <button class="btn btn-sm" type="button" id="btn-backup-now">${ICON.plus}Backup ora</button>
+    </div>
+    <div class="card table-card"><div id="backups-table"></div></div>
+
     <h2 class="section-title">Informazioni</h2>
     <div class="card"><dl class="info" id="info"></dl></div>`;
   $$("[data-theme-choice]", el).forEach((b) =>
@@ -92,6 +122,25 @@ function mount(el) {
   $("#btn-new-type", el).addEventListener("click", () => typeDialog());
   $("#btn-new-cat", el).addEventListener("click", () => categoryDialog());
   $("#btn-fx-manual", el).addEventListener("click", () => manualRateDialog());
+  $("#btn-export-all", el).addEventListener("click", () => exportAll().catch((e) => toast(e.message, true)));
+  $("#btn-import-all", el).addEventListener("click", () => importAll());
+  $("#btn-open-dir", el).addEventListener("click", () => api("POST", "/api/data-dir/open").catch((e) => toast(e.message, true)));
+  $("#btn-backup-now", el).addEventListener("click", async () => {
+    try {
+      await api("POST", "/api/backups");
+      toast("Backup creato");
+      renderBackups();
+    } catch (e) { toast(e.message, true); }
+  });
+  $("#backup-keep", el).addEventListener("change", async (ev) => {
+    try {
+      state.settings = await api("PUT", "/api/settings", { backup_keep: Number(ev.target.value) });
+      toast("Impostazione salvata");
+    } catch (e) {
+      ev.target.value = state.settings.backup_keep;
+      toast(e.message, true);
+    }
+  });
   $("#btn-fx-refresh", el).addEventListener("click", async (ev) => {
     const btn = ev.currentTarget;
     btn.disabled = true;
@@ -148,6 +197,34 @@ async function show() {
   renderTypes();
   renderCategories();
   renderInfo();
+  $("#backup-keep", root).value = state.settings.backup_keep;
+  $("#data-dir", root).textContent = state.status ? state.status.data_dir : "";
+  $("#btn-open-dir", root).hidden = !!(state.status && state.status.demo);
+  await renderBackups();
+}
+
+const fmtSize = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);
+
+async function renderBackups() {
+  const box = $("#backups-table", root);
+  const res = await api("GET", "/api/backups");
+  if (!res.items.length) {
+    box.innerHTML = `<div class="empty-row">Nessun backup ancora: il primo viene creato al prossimo avvio (o con “Backup ora”).</div>`;
+    return;
+  }
+  const reason = (n) => (n.includes("pre-import") ? "prima di un import" : n.includes("manual") ? "manuale" : "automatico");
+  box.innerHTML = `<table class="table">
+    <thead><tr><th>Data</th><th class="hide-sm">Tipo</th><th class="num">Dimensione</th><th class="actions"></th></tr></thead>
+    <tbody>${res.items.map((b) => `<tr>
+      <td>${dateFmt(b.created_at.slice(0, 10))} ${b.created_at.slice(11, 16)}</td><td class="hide-sm">${reason(b.name)}</td>
+      <td class="num">${fmtSize(b.size)}</td>
+      <td class="actions"><button class="btn btn-sm btn-ghost" type="button" data-restore="${esc(b.name)}">Ripristina</button>
+        <button class="icon-btn" type="button" title="Scarica" data-dl="${esc(b.name)}">${ICON.download}</button></td></tr>`).join("")}
+    </tbody></table>`;
+  box.querySelectorAll("[data-restore]").forEach((btn) => btn.addEventListener("click", () =>
+    restoreBackup(res.items.find((x) => x.name === btn.dataset.restore))));
+  box.querySelectorAll("[data-dl]").forEach((btn) => btn.addEventListener("click", () =>
+    download(`/api/backups/${encodeURIComponent(btn.dataset.dl)}`, btn.dataset.dl).catch((e) => toast(e.message, true))));
 }
 
 const SOURCES = { yahoo: "Yahoo", manual: "Manuale", demo: "Demo" };
