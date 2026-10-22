@@ -2,6 +2,10 @@
 
 App desktop personale per gestire conti, spese, entrate, trasferimenti e investimenti. Gira in locale (`127.0.0.1`) e mostra ogni importo anche in EUR.
 
+![Home di myWealth in modalità demo: patrimonio totale, card per conto e andamento in EUR](docs/img/home.png)
+
+*Home in modalità demo (`uv run mywealth --demo`, dati sintetici).*
+
 - Specifica: [`docs/SPEC.md`](docs/SPEC.md)
 - Istruzioni per Claude Code: [`CLAUDE.md`](CLAUDE.md)
 
